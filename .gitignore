@@ -30,3 +30,6 @@
 
 # Ignore BackupScript entirely
 /BackupScript/
+
+# Allow .gitkeep files everywhere
+!.gitkeep
