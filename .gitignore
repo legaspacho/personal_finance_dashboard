@@ -1,32 +1,32 @@
 # Ignore everything
 /*
 
-# Allow root-level files
+# Allow root-level files and specific directories
 !/*
 
-# Allow the 'apps' directory
+# Allow specific folders
 !/apps/
-
 !/venv/
-
-# Allow the 'assets' directory
 !/assets/
+!/InputFiles/
 
-# Ignore everything inside the 'apps' and 'assets' subdirectories, except their contents
-/assets/*
-!/assets/**
+# Ignore contents of these folders, but not the folders themselves
+/apps/*
+!/apps/**
 
 /venv/*
 !/venv/**
 
-# Ignore all CSV files
+/assets/*
+!/assets/**
+
+/InputFiles/*
+!/InputFiles/**/
+!/InputFiles/example_data/
+!/InputFiles/example_data/*.csv
+
+# Ignore all CSVs everywhere else
 *.csv
 
-# Allow CSV files in example_data folder
-!InputFiles/example_data/
-!InputFiles/example_data/*.csv
-
-# Ignore everything in the BackupScript directory
+# Ignore BackupScript entirely
 /BackupScript/
-/BackupScript/
-/InputFiles/
