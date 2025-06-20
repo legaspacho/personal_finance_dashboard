@@ -28,4 +28,5 @@
 
 # Ignore everything in the BackupScript directory
 /BackupScript/
+/BackupScript/
 /InputFiles/
