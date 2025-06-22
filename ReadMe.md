@@ -1,6 +1,7 @@
 ```text 🚀 Usage
-├── Run degiro_IB.py** to retrieve all trading data (stock closing, FX etc)
-├── Run **overview_free.py** to prepare all the banking data and display it '''
+├── Run degiro_IB.py to retrieve all trading data (stock closing, FX etc)
+├── Run overview_free.py to prepare all the banking data and display it 
+'''
 
 The Dashboard has four sections:
 - A range of filters to modify the data being visualised
