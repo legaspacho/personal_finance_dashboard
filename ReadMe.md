@@ -23,18 +23,20 @@ I have chosen to display four KPIs important to me:
 
 ### Second graph Degiro Interactive brokers
 Only the third dropdown is a bit more complex (called **Stock details**), it allows you to visualise different aspects of your investments.
-- The default "High Level". You can see four curves displayed on two y axis On the right axis you can see accumulated dividends overtime. On the left axis you can see the following:
+The default "High Level". You can see four curves displayed on two y axis On the right axis you can see accumulated dividends overtime. On the left axis you can see the following:
     - How much you invested "invested"
     - A benchark of the s&p 500, I chose VT ETF
     - Actual performance "Degiro IB CHF"
+
 ![High Level stock](assets/stock_HighLevel.png)
-- The "Details Dividends" and "Details Stocks". It shows the cummulated dividends of the stocks (or stock value). To make it visible only dividends which represent 2% of the total would be displayed
+
+The "Details Dividends" and "Details Stocks". It shows the cummulated dividends of the stocks (or stock value). To make it visible only dividends which represent 2% of the total would be displayed
 <p float="left">
   <img src="assets/dividends_details.png" width="48%" />
   <img src="assets/stock_details.png" width="48%" />
 </p>
 
-- The "Deep finder YTD" and "Deep finder inception". It shows the growth (YTD or since inception) of your top 20 stocks, which could help identify buy opportunities.
+The "Deep finder YTD" and "Deep finder inception". It shows the growth (YTD or since inception) of your top 20 stocks, which could help identify buy opportunities.
 <p float="left">
   <img src="assets/deep_finder_YTD.png" width="48%" />
   <img src="assets/deep_finder_inception.png" width="48%" />
@@ -50,6 +52,7 @@ Below we see the lsat 3 graphs of the dashboard:
 1) A monthly spent (excluding investment) of the dashboard, stacked values. As well as 3 ,6, 12 months rolling average
 2) How is the spend per category is evolving overtime (i.e. holidays 3, 6, 12, 24 months rolling)
 3) A list of individual transactions (can be filtered using categorise or date time filters)
+
 ![Bottom graphs](assets/bottom_dashboard.png)
 
 ## 📌 Motivation Behind the Project
