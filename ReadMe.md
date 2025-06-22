@@ -1,20 +1,6 @@
-InputFiles/
-├── Degiro/
-│   └── Degiro_deposit.csv
-├── example_data/
-│   └── .gitkeep
-├── exception/
-│   └── .gitkeep
-├── Exception_csv
-├── Initialisation
-├──neon
-├──Postfinance
-├──swisscard
-├──ZKB
-
-🚀 Usage
-├── Run degiro_IB.py to retrieve all trading data (stock closing, FX etc)
-├── Run overview_free.py to prepare all the banking data and display it
+'''🚀 **Usage**
+├── Run **degiro_IB.py** to retrieve all trading data (stock closing, FX etc)
+├── Run **overview_free.py** to prepare all the banking data and display it'''
 
 The Dashboard has four sections:
 - A range of filters to modify the data being visualised
@@ -22,9 +8,8 @@ The Dashboard has four sections:
 - A few different graphs
 - A list of all transactiosn within the filtered range to help deep dive.
 ![Dashboard overview](assets/dashboard_top.png)
-
-The third dropdown "Stock details" allow you to visualise different aspects of your investments.
-- The default "High Level". You can see four curves displayed on two y axis On the right axis you can see accumulated dividends overtime.. On the left axis you can see the following:
+Only the third dropdown is a bit more complex (called **Stock details**), it allows you to visualise different aspects of your investments.
+- The default "High Level". You can see four curves displayed on two y axis On the right axis you can see accumulated dividends overtime. On the left axis you can see the following:
     - How much you invested "invested"
     - A benchark of the s&p 500, I chose VT ETF
     - Actual performance "Degiro IB CHF"
@@ -38,8 +23,14 @@ The third dropdown "Stock details" allow you to visualise different aspects of y
 - The "Deep finder inception". It shows the growth (since you first bought a stock) of your top 20 stocks, which could help identify buy opportunities, and benchmark them.
 ![DeepFinder Inception](assets/deep_finder_inception.png)
 
-KPI section:
-- KPI
+'''**KPI section**, I have chosen to display four KPIs important to me:
+- Income saved YTD vs last year (this is purely how much has been put aside and does not consider unrealised gains/lose)
+- Restaurant YTD vs last year (As we go often to the restaurant I find it important to monitor it)
+- Restaurant current month vs last month
+- Dividends YTD vs last year
+'''
+
+<pre lang="markdown"> ``` InputFiles/ ├── Degiro/ │ └── Degiro_deposit.csv ├── example_data/ │ └── .gitkeep ├── exception/ │ └── .gitkeep ├── Exception_csv ├── Initialisation ├── neon ├── Postfinance ├── swisscard ├── ZKB ``` </pre>
 
 1) Download all the files (Bank transacations and Stocks transactions in the corresponding folder)
 2) In InputFiles\Initialisation you need to initiate the dashboard with the following infomration
