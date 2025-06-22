@@ -61,14 +61,14 @@ Below we see the lsat 3 graphs of the dashboard:
 The first initial setup is a bit longer as one needs to download the files, potentially apply some initialization or clustering.
 
 1) Download all the files (Bank transacations and Stocks transactions in the corresponding folder)
-    In my case **neon** is available as yearly csv in the mobile phone. All yearly csv can be dropped in the correspoding folder
-    **Swisscard** allows from the web to dwonload all transactions as csv. I normally download one year of transaction
-    **Degiro, interactive brokers**: data can be downloaded as follow:
+In my case **neon** is available as yearly csv in the mobile phone. All yearly csv can be dropped in the correspoding folder
+**Swisscard** allows from the web to dwonload all transactions as csv. I normally download one year of transaction
+**Degiro, interactive brokers**: data can be downloaded as follow:
 
 2) In InputFiles\Initialisation you need to initiate the dashboard with the following information
-    I have three CSVs "bank_init.csv", "pillar2a.csv", "taxes_init.csv". You can copy the example files for the folder example_data into the folder Initialisation
+I have three CSVs "bank_init.csv", "pillar2a.csv", "taxes_init.csv". You can copy the example files for the folder example_data into the folder Initialisation
     
-    2a) The "bank_init.csv" has the following structure:
+2a) The "bank_init.csv" has the following structure:
 
         It also contains information to initialize investment (pillar 2a, pillar 3a, interactive brokers) as only transaction are looked at
         I opened a bank account in 2011 and listed the first money transfered from my old bank account to the new as "salary" and initialized the values on the other accounts.
