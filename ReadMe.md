@@ -32,6 +32,7 @@ Only the third dropdown is a bit more complex (called **Stock details**), it all
 - Restaurant YTD vs last year (As we go often to the restaurant I find it important to monitor it)
 - Restaurant current month vs last month
 - Dividends YTD and equity YTD
+![KPI section](assets/KPI_section.png)
 
 
 The first graph "Monthly spent (excluding investment)" shows in bar (left axis) how much money has been saved per month, as well as how much is remaining on the bank account (Konto Stand). On the right axis you see two cummulative curves of wealth: 1) Cummulative which reprensent wealth invested (bank account + deposited on trading platform), 2) "incl. 2a" is for swiss usage and to reprensent how much is on top in the pillar 2a retirement fund.
