@@ -14,18 +14,18 @@ Only the third dropdown is a bit more complex (called **Stock details**), it all
     - A benchark of the s&p 500, I chose VT ETF
     - Actual performance "Degiro IB CHF"
 ![DeepFinder YTD](assets/stock_HighLevel.png)
-- The "Details Dividends". It shows the cummulated dividends of the stocks. To make it visible only dividends which represent 2% of the total would be displayed
-![Stock Details](assets/stock_details.png)
-- The "Details Stocks". It shows the cummulated stocks breakdown. To make it visible only stocks which represent 2% of the total would be displayed
-![Stock Details](assets/stock_details.png)
-- The "Deep finder YTD". It shows the growth (YTD) of your top 20 stocks, which could help identify buy opportunities.
+- The "Details Dividends" and "Details Stocks". It shows the cummulated dividends of the stocks (or stock value). To make it visible only dividends which represent 2% of the total would be displayed
 <p float="left">
-  <img src="assets/deep_finder_YTD.png" width="45%" />
-  <img src="assets/deep_finder_inception.png" width="45%" />
+  <img src="assets/dividends_details.png" width="48%" />
+  <img src="assets/stock_details.png" width="48%" />
 </p>
 
-- The "Deep finder inception". It shows the growth (since you first bought a stock) of your top 20 stocks, which could help identify buy opportunities, and benchmark them.
-![DeepFinder Inception](assets/deep_finder_inception.png)
+- The "Deep finder YTD" and "Deep finder inception". It shows the growth (YTD or since inception) of your top 20 stocks, which could help identify buy opportunities.
+<p float="left">
+  <img src="assets/deep_finder_YTD.png" width="48%" />
+  <img src="assets/deep_finder_inception.png" width="48%" />
+</p>
+
 
 **KPI section**, I have chosen to display four KPIs important to me:
 - Income saved YTD vs last year (this is purely how much has been put aside and does not consider unrealised gains/lose)
