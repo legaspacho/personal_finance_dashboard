@@ -1,12 +1,15 @@
-🚀 **Usage**
-├── Run **degiro_IB.py** to retrieve all trading data (stock closing, FX etc)
-├── Run **overview_free.py** to prepare all the banking data and display it
+```text 🚀 Usage
+├── Run degiro_IB.py** to retrieve all trading data (stock closing, FX etc)
+├── Run **overview_free.py** to prepare all the banking data and display it '''
 
 The Dashboard has four sections:
 - A range of filters to modify the data being visualised
 - Some high level KPIs
 - A few different graphs
 - A list of all transactiosn within the filtered range to help deep dive.
+
+The first graph "Monthly spent (excluding investment)" shows in bar (left axis) how much money has been saved per month, as well as how much is remaining on the bank account (Konto Stand). On the right axis you see two cummulative curves of wealth: 1) Cummulative which reprensent wealth invested (bank account + deposited on trading platform), 2) "incl. 2a" is for swiss usage and to reprensent how much is on top in the pillar 2a retirement fund.
+
 ![Dashboard overview](assets/dashboard_top.png)
 Only the third dropdown is a bit more complex (called **Stock details**), it allows you to visualise different aspects of your investments.
 - The default "High Level". You can see four curves displayed on two y axis On the right axis you can see accumulated dividends overtime. On the left axis you can see the following:
@@ -28,17 +31,12 @@ Only the third dropdown is a bit more complex (called **Stock details**), it all
 
 
 **KPI section**, I have chosen to display four KPIs important to me:
+![KPI section](assets/KPI_section.png)
 - Income saved YTD vs last year (this is purely how much has been put aside and does not consider unrealised gains/lose)
 - Restaurant YTD vs last year (As we go often to the restaurant I find it important to monitor it)
 - Restaurant current month vs last month
 - Dividends YTD and equity YTD
-![KPI section](assets/KPI_section.png)
 
-
-The first graph "Monthly spent (excluding investment)" shows in bar (left axis) how much money has been saved per month, as well as how much is remaining on the bank account (Konto Stand). On the right axis you see two cummulative curves of wealth: 1) Cummulative which reprensent wealth invested (bank account + deposited on trading platform), 2) "incl. 2a" is for swiss usage and to reprensent how much is on top in the pillar 2a retirement fund.
-
-
-InputFiles/ ├── Degiro/ │ └── Degiro_deposit.csv ├── example_data/ │ └── .gitkeep ├── exception/ │ └── .gitkeep ├── Exception_csv ├── Initialisation ├── neon ├── Postfinance ├── swisscard ├── ZKB
 
 ![Tree map wateral](assets/treemap_waterfall.png)
 1) Waterfall to see how you spend your money
@@ -60,3 +58,5 @@ How to set it up:
 6) In Switzerland we get a second pillar, thus I initiate how much I have at the date from 2a, category is also investment
 7) In file pillar 2a, for each for put the date until which you received a given value of pillar 2a, category pillar 2a
 8) In file taxes you can smooth your taxes, in column description you can put "taxes_delete", or "tax_add_manual" to add or remove transaction so they are spread monthly
+
+InputFiles/ ├── Degiro/ │ └── Degiro_deposit.csv ├── example_data/ │ └── .gitkeep ├── exception/ │ └── .gitkeep ├── Exception_csv ├── Initialisation ├── neon ├── Postfinance ├── swisscard ├── ZKB
