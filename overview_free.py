@@ -26,6 +26,10 @@ import numpy as np
 import math
 import os
 
+pd.options.mode.chained_assignment = 'raise'
+pd.set_option('mode.chained_assignment', 'raise')
+
+
 cwd = os.getcwd()
 path = f"{cwd}\\datasets"
 
@@ -1018,12 +1022,12 @@ def area_category_graph(catgory_include, slider_date, aggregate_category):
 
 def load_prep_data_deepfinder(df):
 
-    df = df.dropna(subset=["Close_CHF"])
+    df = df.dropna(subset=["Close_CHF"]).copy()
 
     latest_date = df["Date"].max()
 
     # Compute the latest total value per stock (use absolute quantity)
-    df['Stock Quantity'] = df['Stock Quantity'].fillna(0)
+    df.loc[:, 'Stock Quantity'] = df['Stock Quantity'].fillna(0)
     df['value'] = df['Stock Quantity'] * df['Close_CHF']
     latest_values = df[df["Date"] == latest_date].groupby("Symbol")["value"].sum()
 

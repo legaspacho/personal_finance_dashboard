@@ -66,14 +66,9 @@ The first initial setup is a bit longer as one needs to download the files, pote
     **Degiro, interactive brokers**: data can be downloaded as follow:
 
 2) In InputFiles\Initialisation you need to initiate the dashboard with the following information
-    I have three CSVs "bank_init.csv", "pillar2a.csv", "taxes_init.csv"
+    I have three CSVs "bank_init.csv", "pillar2a.csv", "taxes_init.csv". You can copy the example files for the folder example_data into the folder Initialisation
     
     2a) The "bank_init.csv" has the following structure:
-
-        ```csv
-        Date,Amount,Original amount,Original currency,Exchange rate,Description,Subject,Category,Tags,Wise,Spaces,category
-        01/10/2011,,,,,Start Date Dashboard,,,,,,
-        ```
 
         It also contains information to initialize investment (pillar 2a, pillar 3a, interactive brokers) as only transaction are looked at
         I opened a bank account in 2011 and listed the first money transfered from my old bank account to the new as "salary" and initialized the values on the other accounts.
@@ -81,24 +76,14 @@ The first initial setup is a bit longer as one needs to download the files, pote
     
     2b) The "pillar2a.csv" has the following structure
 
-        ```csv
-        Date,Amount,Original amount,Original currency,Exchange rate,Description,Subject,Category,Tags,Wise,Spaces,category
-        01/01/2011,234.65,,,,PensionFund,,taxes,,,,pillar2a
-        ```
-
         For every salary you receive starting at the date Date you will have a new income going to pillar 2a based on the mentioned value. If you have a salary raise or how much you put in pillar 2a is changing you can add a new row with the start date and associated value.
     
     2c) The "taxes_init.csv" has the following structure
-        
-        ```csv
-        Date,Amount,Original amount,Original currency,Exchange rate,Description,Subject,Category,Tags,Wise,Spaces,category
-        30/09/2011,-5000,,,,taxes_delete,,taxes,,,,taxes
-        ```
 
         In the description you can add "tax_add_manual" or "taxes_delete". I created this file if you want to smooth your taxes and remove the full amount paid once a year and add the monthly values
 
 3) In the Exception_csv\categorization_exceptions.csv
-    The goal of this file is to identify and modify some transaction for a better categorisation (i.e. if you paid in advance for a holiday house 3 months before but your friends will pay you pack after the holiday you can "move" the initial payment to when you are paid pack to reflect the netto) 
+    The goal of this file is to identify and modify some transaction for a better categorisation (i.e. if you paid in advance for a holiday house 3 months before but your friends will pay you pack after the holiday you can "move" the initial payment to when you are paid pack to reflect the netto). You can copy the csv "categorization_exceptions.csv" from the example_data into the Exception_csv folder
 
     The csv has the following structure: description_substring,amount_min,amount_max,year_condition,year_min,year_max,month_condition,month_min,month_max,date_min,date_max,new_description,new_category,new_month,new_year,subject,category, Memo
 
