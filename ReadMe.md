@@ -8,16 +8,26 @@ The Dashboard has **four sections**:
 - Some high level **KPIs**
 - A few different **graphs**
 - A list of **all transaction** within the filtered range to help deep dive.
-
-The first graph "Monthly spent (excluding investment)" shows on the left axis how much money has been saved per month, as well as how much is remaining on the bank account (Konto Stand). On the right axis you see two cummulative curves of wealth: 1) Cummulative which reprensent wealth invested (bank account + deposited on trading platform), 2) "incl. 2a" is for swiss usage and to reprensent how much is on top in the pillar 2a retirement fund.
-
 ![Dashboard overview](assets/dashboard_top.png)
+
+### KPI section
+I have chosen to display four KPIs important to me:
+![KPI section](assets/KPI_section.png)
+- Income saved YTD vs last year (this is purely how much has been put aside and does not consider unrealised gains/lose)
+- Restaurant YTD vs last year (As we go often to the restaurant I find it important to monitor it)
+- Restaurant current month vs last month
+- Dividends YTD and equity YTD
+
+### First graph "Monthly spent (excluding investment)"
+ It shows on the left axis how much money has been saved per month, as well as how much is remaining on the bank account (Konto Stand). On the right axis you see two cummulative curves of wealth: 1) Cummulative which reprensent wealth invested (bank account + deposited on trading platform), 2) "incl. 2a" is for swiss usage and to reprensent how much is on top in the pillar 2a retirement fund.
+
+### Second graph Degiro Interactive brokers
 Only the third dropdown is a bit more complex (called **Stock details**), it allows you to visualise different aspects of your investments.
 - The default "High Level". You can see four curves displayed on two y axis On the right axis you can see accumulated dividends overtime. On the left axis you can see the following:
     - How much you invested "invested"
     - A benchark of the s&p 500, I chose VT ETF
     - Actual performance "Degiro IB CHF"
-![DeepFinder YTD](assets/stock_HighLevel.png)
+![High Level stock](assets/stock_HighLevel.png)
 - The "Details Dividends" and "Details Stocks". It shows the cummulated dividends of the stocks (or stock value). To make it visible only dividends which represent 2% of the total would be displayed
 <p float="left">
   <img src="assets/dividends_details.png" width="48%" />
@@ -30,18 +40,12 @@ Only the third dropdown is a bit more complex (called **Stock details**), it all
   <img src="assets/deep_finder_inception.png" width="48%" />
 </p>
 
-
-**KPI section**, I have chosen to display four KPIs important to me:
-![KPI section](assets/KPI_section.png)
-- Income saved YTD vs last year (this is purely how much has been put aside and does not consider unrealised gains/lose)
-- Restaurant YTD vs last year (As we go often to the restaurant I find it important to monitor it)
-- Restaurant current month vs last month
-- Dividends YTD and equity YTD
-
+### Waterfall and tree map graphs
 ![Tree map wateral](assets/treemap_waterfall.png)
 1) Waterfall to see how you spend your money
 2) A tree map to visualise the larger categorise and deep dive in the sub categorise
 
+### Last section of the dashboard
 Below we see the lsat 3 graphs of the dashboard: 
 1) A monthly spent (excluding investment) of the dashboard, stacked values. As well as 3 ,6, 12 months rolling average
 2) How is the spend per category is evolving overtime (i.e. holidays 3, 6, 12, 24 months rolling)
