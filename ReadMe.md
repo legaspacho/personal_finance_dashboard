@@ -1,15 +1,15 @@
-```text 🚀 Usage
-├── Run degiro_IB.py to retrieve all trading data (stock closing, FX etc)
-├── Run overview_free.py to prepare all the banking data and display it 
-'''
+🚀 **Usage**  
+├── Run **degiro_IB.py** to retrieve all trading data (stock closing, FX etc)  
+├── Run **overview_free.py** to prepare all the banking data and display it
+
 
 The Dashboard has four sections:
-- A range of filters to modify the data being visualised
-- Some high level KPIs
-- A few different graphs
-- A list of all transactiosn within the filtered range to help deep dive.
+- A range of **filters** to modify the data being visualised
+- Some high level **KPIs**
+- A few different **graphs**
+- A list of **all transaction** within the filtered range to help deep dive.
 
-The first graph "Monthly spent (excluding investment)" shows in bar (left axis) how much money has been saved per month, as well as how much is remaining on the bank account (Konto Stand). On the right axis you see two cummulative curves of wealth: 1) Cummulative which reprensent wealth invested (bank account + deposited on trading platform), 2) "incl. 2a" is for swiss usage and to reprensent how much is on top in the pillar 2a retirement fund.
+The first graph "Monthly spent (excluding investment)" shows on the left axis how much money has been saved per month, as well as how much is remaining on the bank account (Konto Stand). On the right axis you see two cummulative curves of wealth: 1) Cummulative which reprensent wealth invested (bank account + deposited on trading platform), 2) "incl. 2a" is for swiss usage and to reprensent how much is on top in the pillar 2a retirement fund.
 
 ![Dashboard overview](assets/dashboard_top.png)
 Only the third dropdown is a bit more complex (called **Stock details**), it allows you to visualise different aspects of your investments.
