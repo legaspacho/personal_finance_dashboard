@@ -92,6 +92,7 @@ app.layout = html.Div(
                                     ),
                                 ]
                             ),
+                            className="h-100",  # Make card take full height
                             style={'fontSize': '12px', 'backgroundColor': '#333333'},
                         ),
                         width=2,
@@ -114,6 +115,7 @@ app.layout = html.Div(
                                     ),
                                 ]
                             ),
+                            className="h-100",  # Make card take full height
                             style={'fontSize': '12px', 'backgroundColor': '#333333'},
                         ),
                         width=1,
@@ -138,6 +140,7 @@ app.layout = html.Div(
                                     ),
                                 ]
                             ),
+                            className="h-100",  # Make card take full height
                             style={'fontSize': '12px', 'backgroundColor': '#333333'},
                         ),
                         width=2,
@@ -159,6 +162,7 @@ app.layout = html.Div(
                                     ),
                                 ]
                             ),
+                            className="h-100",  # Make card take full height
                             style={'fontSize': '12px', 'backgroundColor': '#333333'},
                         ),
                         width=1,
@@ -191,6 +195,7 @@ app.layout = html.Div(
                                     ),
                                 ]
                             ),
+                            className="h-100",  # Make card take full height
                             style={'fontSize': '12px', 'backgroundColor': '#333333'},
                         ),
                         width=6,
@@ -551,7 +556,8 @@ def all_graphs( children):
             ),
             showgrid=True, 
             gridcolor='lightgray', 
-            zeroline=False
+            zeroline=False,
+            showticklabels=False
         ),
         legend=dict(
             orientation="h",
@@ -654,7 +660,8 @@ def all_graphs( spent_aggregation, catgory_include, slider_date):
         yaxis=dict(
             title="Amount",
             titlefont=dict(color="white"),  # White axis title
-            tickfont=dict(color="white")    # White tick labels
+            tickfont=dict(color="white"),    # White tick labels
+            showticklabels=False,
         ),
 
         xaxis=dict(
@@ -758,7 +765,8 @@ def all_graphs( spent_aggregation, catgory_include, slider_date):
             tickvals=y2_tickvals,
             title="Cumulative worth [CHF]",
             titlefont=dict(color="white"),  # White axis title
-            tickfont=dict(color="white")    # White tick labels
+            tickfont=dict(color="white"),    # White tick labels
+            showticklabels=False,
         ),
 
         yaxis=dict(
@@ -766,7 +774,8 @@ def all_graphs( spent_aggregation, catgory_include, slider_date):
             tickvals=y1_tickvals,
             title="Monthly [CHF] saved/kontoStand",
             titlefont=dict(color="white"),  # White axis title
-            tickfont=dict(color="white")    # White tick labels
+            tickfont=dict(color="white"),    # White tick labels
+            showticklabels=False
         ),
 
         legend=dict(
@@ -979,6 +988,7 @@ def area_category_graph(catgory_include, slider_date, aggregate_category):
         yaxis=dict(
             showgrid=True, 
             gridcolor='lightgray', 
+            showticklabels=False,
             zeroline=False, 
             title=dict(
                 text="CHF/months",  # Replace with your y-axis title
@@ -1182,6 +1192,7 @@ def update_compare(stock_details, slider_date, children):
                 titlefont=dict(color="white"),  # White title font for contrast
                 tickfont=dict(color="white"),   # White tick font for better visibility
                 gridcolor='gray',               # Adjust grid color
+                showticklabels=False,
             ),
 
             yaxis=dict(
@@ -1191,6 +1202,7 @@ def update_compare(stock_details, slider_date, children):
                 titlefont=dict(color="white"),  # White title font
                 tickfont=dict(color="white"),   # White tick font
                 gridcolor='gray',               # Gray grid lines for better visibility
+                showticklabels=False,
             ),
 
             legend=dict(

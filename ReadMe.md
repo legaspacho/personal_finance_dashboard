@@ -1,3 +1,25 @@
+InputFiles/
+├── Degiro/
+│   └── Degiro_deposit.csv
+├── example_data/
+│   └── .gitkeep
+├── exception/
+│   └── .gitkeep
+├── Exception_csv
+├── Initialisation
+├──neon
+├──Postfinance
+├──swisscard
+├──ZKB
+
+🚀 Usage
+├── Run degiro_IB.py to retrieve all trading data (stock closing, FX etc)
+├── Run overview_free.py to prepare all the banking data and display it
+
+
+![Dashboard overview](assets/dashboard_top.png)
+
+
 1) Download all the files (Bank transacations and Stocks transactions in the corresponding folder)
 2) In InputFiles\Initialisation you need to initiate the dashboard with the following infomration
 2a) Column Description: Start Date Dashboard (put the date from which you started to use this account)
