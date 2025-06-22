@@ -150,122 +150,127 @@ def pillar2a(df_all):
     return df_all
 
 
-def apply_exceptions(df_all):
-    exceptions_df = pd.read_csv("InputFiles\\Exception_csv\\categorization_exceptions.csv", dtype=str)
-
-    # Ensure correct types in df_all
-    df_all["Amount"] = pd.to_numeric(df_all["Amount"], errors="coerce")
-    df_all["month"] = pd.to_numeric(df_all["month"], errors="coerce")
-    df_all["year"] = pd.to_numeric(df_all["year"], errors="coerce")
-    if "Date" in df_all.columns:
-        df_all["Date"] = pd.to_datetime(df_all["Date"], errors="coerce")
-
-    print_rule = False
-    for index, row in df_all.iterrows():
-
-        for _, rule in exceptions_df.iterrows():
-            # --- Match subject and category with AND condition if both are specified ---
-            subject_specified = pd.notna(rule.get("subject")) and rule["subject"].strip() != ""
-            category_specified = pd.notna(rule.get("category")) and rule["category"].strip() != ""
-
-            if subject_specified and category_specified:
-                rule_subject = rule["subject"].strip().lower()
-                row_subject = str(row.get("Subject", "")).strip().lower()
-                rule_category = rule["category"].strip().lower()
-                row_category = str(row.get("category", "")).strip().lower()
-
-                if rule_subject not in row_subject or rule_category != row_category:
-                    continue
-
-            elif subject_specified:
-                rule_subject = rule["subject"].strip().lower()
-                row_subject = str(row.get("Subject", "")).strip().lower()
-                if rule_subject not in row_subject:
-                    continue
-
-            elif category_specified:
-                rule_category = rule["category"].strip().lower()
-                row_category = str(row.get("category", "")).strip().lower()
-                if rule_category != row_category:
-                    continue
-
-            # --- Description substring match ---
-            if pd.notna(rule["description_substring"]) and rule["description_substring"].lower() not in str(row["Description"]).lower():
-                continue
-
-            # --- Amount range ---
-            if pd.notna(rule["amount_min"]) and row["Amount"] < float(rule["amount_min"]):
-                continue
-            if pd.notna(rule["amount_max"]) and row["Amount"] > float(rule["amount_max"]):
-                continue
-
-            # --- Year logic ---
-            year_cond = str(rule.get("year_condition", "")).strip()
-            y_min = str(rule.get("year_min", "")).strip()
-            y_max = str(rule.get("year_max", "")).strip()
-
-            if year_cond in {"&", "|"} and y_min.isdigit() and y_max.isdigit():
-                y_min, y_max = int(y_min), int(y_max)
-                if year_cond == "&":
-                    if not (y_min <= row["year"] <= y_max):
-                        continue
-                elif year_cond == "|":
-                    if not (row["year"] <= y_min or row["year"] >= y_max):
-                        continue
-            else:
-                if y_min.isdigit() and row["year"] < int(y_min):
-                    continue
-                if y_max.isdigit() and row["year"] > int(y_max):
-                    continue
-
-            # --- Month logic ---
-            month_cond = str(rule.get("month_condition", "")).strip()
-            m_min = str(rule.get("month_min", "")).strip()
-            m_max = str(rule.get("month_max", "")).strip()
-
-            if month_cond in {"&", "|"} and m_min.isdigit() and m_max.isdigit():
-                m_min, m_max = int(m_min), int(m_max)
-                if m_min == m_max:
-                    if row["month"] != m_min:
-                        continue
-                elif month_cond == "&":
-                    if not (m_min <= row["month"] <= m_max):
-                        continue
-                elif month_cond == "|":
-                    if not (row["month"] >= m_min or row["month"] <= m_max):
-                        continue
-            elif m_min.isdigit() and row["month"] != int(m_min):
-                continue
-
-            # --- Date range ---
-            if pd.notna(rule["date_min"]) or pd.notna(rule["date_max"]):
-                if "Date" not in df_all.columns:
-                    continue
-                row_date = row["Date"]
-                if pd.notna(rule["date_min"]) and row_date < pd.to_datetime(rule["date_min"], dayfirst=True, errors="coerce"):
-                    continue
-                if pd.notna(rule["date_max"]) and row_date > pd.to_datetime(rule["date_max"], dayfirst=True, errors="coerce"):
-                    continue
-
-            # --- Apply changes ---
-            if pd.notna(rule["new_description"]):
-                df_all.at[index, "Description"] = rule["new_description"]
-            if pd.notna(rule["new_category"]):
-                df_all.at[index, "category"] = rule["new_category"]
-            if pd.notna(rule["new_month"]):
-                df_all.at[index, "month"] = int(rule["new_month"])
-            if pd.notna(rule["new_year"]):
-                df_all.at[index, "year"] = int(rule["new_year"])
-
-            break  # Stop at first matching rule
+def apply_exceptions(cwd, df_all):
+    exceptions_path = f"{cwd}\\InputFiles\\Exception_csv\\categorization_exceptions.csv"
+    
+    if os.path.exists(exceptions_path):
+        exceptions_df = pd.read_csv(exceptions_path, dtype=str)
+        print("Exceptions applied.")
+    
+        # Ensure correct types in df_all
+        df_all["Amount"] = pd.to_numeric(df_all["Amount"], errors="coerce")
+        df_all["month"] = pd.to_numeric(df_all["month"], errors="coerce")
+        df_all["year"] = pd.to_numeric(df_all["year"], errors="coerce")
+        if "Date" in df_all.columns:
+            df_all["Date"] = pd.to_datetime(df_all["Date"], errors="coerce")
 
         print_rule = False
+        for index, row in df_all.iterrows():
 
+            for _, rule in exceptions_df.iterrows():
+                # --- Match subject and category with AND condition if both are specified ---
+                subject_specified = pd.notna(rule.get("subject")) and rule["subject"].strip() != ""
+                category_specified = pd.notna(rule.get("category")) and rule["category"].strip() != ""
+
+                if subject_specified and category_specified:
+                    rule_subject = rule["subject"].strip().lower()
+                    row_subject = str(row.get("Subject", "")).strip().lower()
+                    rule_category = rule["category"].strip().lower()
+                    row_category = str(row.get("category", "")).strip().lower()
+
+                    if rule_subject not in row_subject or rule_category != row_category:
+                        continue
+
+                elif subject_specified:
+                    rule_subject = rule["subject"].strip().lower()
+                    row_subject = str(row.get("Subject", "")).strip().lower()
+                    if rule_subject not in row_subject:
+                        continue
+
+                elif category_specified:
+                    rule_category = rule["category"].strip().lower()
+                    row_category = str(row.get("category", "")).strip().lower()
+                    if rule_category != row_category:
+                        continue
+
+                # --- Description substring match ---
+                if pd.notna(rule["description_substring"]) and rule["description_substring"].lower() not in str(row["Description"]).lower():
+                    continue
+
+                # --- Amount range ---
+                if pd.notna(rule["amount_min"]) and row["Amount"] < float(rule["amount_min"]):
+                    continue
+                if pd.notna(rule["amount_max"]) and row["Amount"] > float(rule["amount_max"]):
+                    continue
+
+                # --- Year logic ---
+                year_cond = str(rule.get("year_condition", "")).strip()
+                y_min = str(rule.get("year_min", "")).strip()
+                y_max = str(rule.get("year_max", "")).strip()
+
+                if year_cond in {"&", "|"} and y_min.isdigit() and y_max.isdigit():
+                    y_min, y_max = int(y_min), int(y_max)
+                    if year_cond == "&":
+                        if not (y_min <= row["year"] <= y_max):
+                            continue
+                    elif year_cond == "|":
+                        if not (row["year"] <= y_min or row["year"] >= y_max):
+                            continue
+                else:
+                    if y_min.isdigit() and row["year"] < int(y_min):
+                        continue
+                    if y_max.isdigit() and row["year"] > int(y_max):
+                        continue
+
+                # --- Month logic ---
+                month_cond = str(rule.get("month_condition", "")).strip()
+                m_min = str(rule.get("month_min", "")).strip()
+                m_max = str(rule.get("month_max", "")).strip()
+
+                if month_cond in {"&", "|"} and m_min.isdigit() and m_max.isdigit():
+                    m_min, m_max = int(m_min), int(m_max)
+                    if m_min == m_max:
+                        if row["month"] != m_min:
+                            continue
+                    elif month_cond == "&":
+                        if not (m_min <= row["month"] <= m_max):
+                            continue
+                    elif month_cond == "|":
+                        if not (row["month"] >= m_min or row["month"] <= m_max):
+                            continue
+                elif m_min.isdigit() and row["month"] != int(m_min):
+                    continue
+
+                # --- Date range ---
+                if pd.notna(rule["date_min"]) or pd.notna(rule["date_max"]):
+                    if "Date" not in df_all.columns:
+                        continue
+                    row_date = row["Date"]
+                    if pd.notna(rule["date_min"]) and row_date < pd.to_datetime(rule["date_min"], dayfirst=True, errors="coerce"):
+                        continue
+                    if pd.notna(rule["date_max"]) and row_date > pd.to_datetime(rule["date_max"], dayfirst=True, errors="coerce"):
+                        continue
+
+                # --- Apply changes ---
+                if pd.notna(rule["new_description"]):
+                    df_all.at[index, "Description"] = rule["new_description"]
+                if pd.notna(rule["new_category"]):
+                    df_all.at[index, "category"] = rule["new_category"]
+                if pd.notna(rule["new_month"]):
+                    df_all.at[index, "month"] = int(rule["new_month"])
+                if pd.notna(rule["new_year"]):
+                    df_all.at[index, "year"] = int(rule["new_year"])
+
+                break  # Stop at first matching rule
+
+            print_rule = False
+    else:
+        print("No exceptions file found. Skipping exceptions.")
     return df_all
 
 
 
-def categorise(df_all):
+def categorise(cwd, df_all):
     df_all['category'] = df_all['category'].astype('object')
     df_all.loc[(df_all["Original currency"].notna()) & (df_all["category"].isna()) & (df_all["Original currency"] != "CHF"), 'category'] = "holidays"
     df_all.loc[df_all["category"].isna(), 'category'] = "others"
@@ -398,7 +403,7 @@ def categorise(df_all):
                 skip = True
 
     df_all["Date"] = pd.to_datetime(dict(year=df_all.year, month=df_all.month, day=df_all.Date.dt.day))
-    df_all = apply_exceptions(df_all)
+    df_all = apply_exceptions(cwd, df_all)
     df_all["Date"] = pd.to_datetime(dict(year=df_all.year, month=df_all.month, day=df_all.Date.dt.day))
     #print(df_all[df_all["Description"].str.lower().str.contains("ilham")])
 
@@ -702,7 +707,7 @@ def main(cwd):
     df_all = initialisation_manual(df_all)
     df_all = initialisation_taxes(df_all)
     df_all["Description"] = df_all["Description"].astype(str)
-    df_all = categorise(df_all)
+    df_all = categorise(cwd, df_all)
     df_all = pillar2a(df_all)
     df_all = sbb_half_tax(df_all)
 

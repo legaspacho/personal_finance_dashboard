@@ -59,13 +59,43 @@ Below we see the lsat 3 graphs of the dashboard:
 
 ## How to set it up.
 The first initial setup is a bit longer as one needs to download the files, potentially apply some initialization or clustering.
-1) Download all the files (Bank transacations and Stocks transactions in the corresponding folder)
-2) In InputFiles\Initialisation you need to initiate the dashboard with the following information
-3) Column Description: Start Date Dashboard (put the date from which you started to use this account)
-4) Below add your total wealth value with the category "salary" and day one day before point 2a
-5) You can add with a negative value, how much left your account for investment (initiating them as well), category investment
-6) In Switzerland we get a second pillar, thus I initiate how much I have at the date from 2a, category is also investment
-7) In file pillar 2a, for each for put the date until which you received a given value of pillar 2a, category pillar 2a
-8) In file taxes you can smooth your taxes, in column description you can put "taxes_delete", or "tax_add_manual" to add or remove transaction so they are spread monthly
 
+1) Download all the files (Bank transacations and Stocks transactions in the corresponding folder)
+    In my case **neon** is available as yearly csv in the mobile phone. All yearly csv can be dropped in the correspoding folder
+    **Swisscard** allows from the web to dwonload all transactions as csv. I normally download one year of transaction
+    **Degiro, interactive brokers**: data can be downloaded as follow:
+
+2) In InputFiles\Initialisation you need to initiate the dashboard with the following information
+    I have three CSVs "bank_init.csv", "pillar2a.csv", "taxes_init.csv"
+    
+    2a) The "bank_init.csv" has the following structure:
+        Date,Amount,Original amount,Original currency,Exchange rate,Description,Subject,Category,Tags,Wise,Spaces,category
+        01/10/2011,,,,,Start Date Dashboard,,,,,,
+
+        It also contains information to initialize investment (pillar 2a, pillar 3a, interactive brokers) as only transaction are looked at
+        I opened a bank account in 2011 and listed the first money transfered from my old bank account to the new as "salary" and initialized the values on the other accounts.
+        You should add as "salary" the full amount you owned at the start date, then add the payment you made to investment platforms (pillar 3a, degiro interactive brokers with a negative value as this was leaving the account)
+    
+    2b) The "pillar2a.csv" has the following structure
+        Date,Amount,Original amount,Original currency,Exchange rate,Description,Subject,Category,Tags,Wise,Spaces,category
+        01/01/2011,234.65,,,,PensionFund,,taxes,,,,pillar2a
+
+        For every salary you receive starting at the date Date you will have a new income going to pillar 2a based on the mentioned value. If you have a salary raise or how much you put in pillar 2a is changing you can add a new row with the start date and associated value.
+    
+    2c) The "taxes_init.csv" has the following structure
+        Date,Amount,Original amount,Original currency,Exchange rate,Description,Subject,Category,Tags,Wise,Spaces,category
+        30/09/2011,-5000,,,,taxes_delete,,taxes,,,,taxes
+
+        In the description you can add "tax_add_manual" or "taxes_delete". I created this file if you want to smooth your taxes and remove the full amount paid once a year and add the monthly values
+
+3) In the Exception_csv\categorization_exceptions.csv
+    The goal of this file is to identify and modify some transaction for a better categorisation (i.e. if you paid in advance for a holiday house 3 months before but your friends will pay you pack after the holiday you can "move" the initial payment to when you are paid pack to reflect the netto) 
+
+    The csv has the following structure: description_substring,amount_min,amount_max,year_condition,year_min,year_max,month_condition,month_min,month_max,date_min,date_max,new_description,new_category,new_month,new_year,subject,category, Memo
+
+
+## Technology
+
+
+## Structure of the repository
 InputFiles/ ├── Degiro/ │ └── Degiro_deposit.csv ├── example_data/ │ └── .gitkeep ├── exception/ │ └── .gitkeep ├── Exception_csv ├── Initialisation ├── neon ├── Postfinance ├── swisscard ├── ZKB
