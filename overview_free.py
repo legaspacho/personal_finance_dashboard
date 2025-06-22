@@ -556,8 +556,7 @@ def all_graphs( children):
             ),
             showgrid=True, 
             gridcolor='lightgray', 
-            zeroline=False,
-            showticklabels=False
+            zeroline=False
         ),
         legend=dict(
             orientation="h",
@@ -660,8 +659,7 @@ def all_graphs( spent_aggregation, catgory_include, slider_date):
         yaxis=dict(
             title="Amount",
             titlefont=dict(color="white"),  # White axis title
-            tickfont=dict(color="white"),    # White tick labels
-            showticklabels=False,
+            tickfont=dict(color="white")    # White tick labels
         ),
 
         xaxis=dict(
@@ -765,8 +763,7 @@ def all_graphs( spent_aggregation, catgory_include, slider_date):
             tickvals=y2_tickvals,
             title="Cumulative worth [CHF]",
             titlefont=dict(color="white"),  # White axis title
-            tickfont=dict(color="white"),    # White tick labels
-            showticklabels=False,
+            tickfont=dict(color="white")    # White tick labels
         ),
 
         yaxis=dict(
@@ -774,8 +771,7 @@ def all_graphs( spent_aggregation, catgory_include, slider_date):
             tickvals=y1_tickvals,
             title="Monthly [CHF] saved/kontoStand",
             titlefont=dict(color="white"),  # White axis title
-            tickfont=dict(color="white"),    # White tick labels
-            showticklabels=False
+            tickfont=dict(color="white")    # White tick labels
         ),
 
         legend=dict(
@@ -820,6 +816,9 @@ def all_graphs( spent_aggregation, catgory_include, slider_date):
             titlefont=dict(color='white'),  # White title on color bar
         )
     )
+
+    # Adjust the color scale for the treemap if necessary (optional)
+    #treemap_graph.update_traces(marker_colorscale='Viridis', textfont_color='white')
 
     df_category_sum = df_finance_raw
     df_category_sum = df_category_sum[~((df_category_sum["category"] == "taxes")
@@ -985,7 +984,6 @@ def area_category_graph(catgory_include, slider_date, aggregate_category):
         yaxis=dict(
             showgrid=True, 
             gridcolor='lightgray', 
-            showticklabels=False,
             zeroline=False, 
             title=dict(
                 text="CHF/months",  # Replace with your y-axis title
@@ -1189,7 +1187,6 @@ def update_compare(stock_details, slider_date, children):
                 titlefont=dict(color="white"),  # White title font for contrast
                 tickfont=dict(color="white"),   # White tick font for better visibility
                 gridcolor='gray',               # Adjust grid color
-                showticklabels=False,
             ),
 
             yaxis=dict(
@@ -1199,7 +1196,6 @@ def update_compare(stock_details, slider_date, children):
                 titlefont=dict(color="white"),  # White title font
                 tickfont=dict(color="white"),   # White tick font
                 gridcolor='gray',               # Gray grid lines for better visibility
-                showticklabels=False,
             ),
 
             legend=dict(
@@ -1392,9 +1388,7 @@ def update_compare(stock_details, slider_date, children):
         hoverlabel=dict(font_size=14, font_color='white'),  # White text in hover labels for readability
 
         title_font_size=14,
-        yaxis=dict(
-            showticklabels=False
-        ),
+
         legend=dict(
             x=0.05,
             y=1,

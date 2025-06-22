@@ -19,7 +19,7 @@ Only the third dropdown is a bit more complex (called **Stock details**), it all
 - The "Details Stocks". It shows the cummulated stocks breakdown. To make it visible only stocks which represent 2% of the total would be displayed
 ![Stock Details](assets/stock_details.png)
 - The "Deep finder YTD". It shows the growth (YTD) of your top 20 stocks, which could help identify buy opportunities.
-![DeepFinder YTD](assets/deep_finder_ytd.png)
+![DeepFinder YTD](assets/deep_finder_YTD.png)
 - The "Deep finder inception". It shows the growth (since you first bought a stock) of your top 20 stocks, which could help identify buy opportunities, and benchmark them.
 ![DeepFinder Inception](assets/deep_finder_inception.png)
 
@@ -27,13 +27,19 @@ Only the third dropdown is a bit more complex (called **Stock details**), it all
 - Income saved YTD vs last year (this is purely how much has been put aside and does not consider unrealised gains/lose)
 - Restaurant YTD vs last year (As we go often to the restaurant I find it important to monitor it)
 - Restaurant current month vs last month
-- Dividends YTD vs last year
+- Dividends YTD and equity YTD
 
 
 The first graph "Monthly spent (excluding investment)" shows in bar (left axis) how much money has been saved per month, as well as how much is remaining on the bank account (Konto Stand). On the right axis you see two cummulative curves of wealth: 1) Cummulative which reprensent wealth invested (bank account + deposited on trading platform), 2) "incl. 2a" is for swiss usage and to reprensent how much is on top in the pillar 2a retirement fund.
 
 
 <pre lang="markdown"> ``` InputFiles/ ├── Degiro/ │ └── Degiro_deposit.csv ├── example_data/ │ └── .gitkeep ├── exception/ │ └── .gitkeep ├── Exception_csv ├── Initialisation ├── neon ├── Postfinance ├── swisscard ├── ZKB ``` </pre>
+
+![DeepFinder Inception](assets/treemap_waterfall.png)
+
+Below we see the lsat 3 graphs of the dashboard: 
+1) A monthly spent (excluding investment) of the dashboard, stacked values
+![Bottom graphs](assets/bottom_dashboard.png)
 
 How to set it up:
 1) Download all the files (Bank transacations and Stocks transactions in the corresponding folder)
