@@ -821,9 +821,6 @@ def all_graphs( spent_aggregation, catgory_include, slider_date):
         )
     )
 
-    # Adjust the color scale for the treemap if necessary (optional)
-    #treemap_graph.update_traces(marker_colorscale='Viridis', textfont_color='white')
-
     df_category_sum = df_finance_raw
     df_category_sum = df_category_sum[~((df_category_sum["category"] == "taxes")
                               | (df_category_sum["category"] == "salary")
@@ -1395,7 +1392,9 @@ def update_compare(stock_details, slider_date, children):
         hoverlabel=dict(font_size=14, font_color='white'),  # White text in hover labels for readability
 
         title_font_size=14,
-
+        yaxis=dict(
+            showticklabels=False
+        ),
         legend=dict(
             x=0.05,
             y=1,
