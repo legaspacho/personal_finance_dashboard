@@ -68,12 +68,8 @@ The first initial setup is a bit longer as one needs to download the files, pote
 2) In InputFiles\Initialisation you need to initiate the dashboard with the following information
     I have three CSVs "bank_init.csv", "pillar2a.csv", "taxes_init.csv"
     
-    2a) The "bank_init.csv" has the following structure:
-        Date,Amount,Original amount,Original currency,Exchange rate,Description,Subject,Category,Tags,Wise,Spaces,category
-        01/10/2011,,,,,Start Date Dashboard,,,,,,
-
-        It also contains information to initialize investment (pillar 2a, pillar 3a, interactive brokers) as only transaction are looked at
-        I opened a bank account in 2011 and listed the first money transfered from my old bank account to the new as "salary" and initialized the values on the other accounts.
+    <pre> 2a) The `bank_init.csv` has the following structure: ```csv Date,Amount,Original amount,Original currency,Exchange rate,Description,Subject,Category,Tags,Wise,Spaces,category 01/10/2011,,,,,Start Date Dashboard,,,,,, ``` It also contains information to initialize investment (pillar 2a, pillar 3a, interactive brokers) as only transactions are looked at. I opened a bank account in 2011 and listed the first money transferred from my old bank account to the new as "salary" and initialized the values on the other accounts. </pre>
+    
         You should add as "salary" the full amount you owned at the start date, then add the payment you made to investment platforms (pillar 3a, degiro interactive brokers with a negative value as this was leaving the account)
     
     2b) The "pillar2a.csv" has the following structure
