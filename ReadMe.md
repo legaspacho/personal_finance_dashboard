@@ -1,6 +1,6 @@
-'''🚀 **Usage**
+<pre> ```text 🚀 **Usage**
 ├── Run **degiro_IB.py** to retrieve all trading data (stock closing, FX etc)
-├── Run **overview_free.py** to prepare all the banking data and display it'''
+├── Run **overview_free.py** to prepare all the banking data and display it``` </pre>
 
 The Dashboard has four sections:
 - A range of filters to modify the data being visualised
@@ -28,6 +28,10 @@ Only the third dropdown is a bit more complex (called **Stock details**), it all
 - Restaurant YTD vs last year (As we go often to the restaurant I find it important to monitor it)
 - Restaurant current month vs last month
 - Dividends YTD vs last year
+'''
+
+'''
+The first graph "Monthly spent (excluding investment)"
 '''
 
 <pre lang="markdown"> ``` InputFiles/ ├── Degiro/ │ └── Degiro_deposit.csv ├── example_data/ │ └── .gitkeep ├── exception/ │ └── .gitkeep ├── Exception_csv ├── Initialisation ├── neon ├── Postfinance ├── swisscard ├── ZKB ``` </pre>
