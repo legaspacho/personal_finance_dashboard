@@ -68,24 +68,24 @@ In my case **neon** is available as yearly csv in the mobile phone. All yearly c
 2) In InputFiles\Initialisation you need to initiate the dashboard with the following information
 I have three CSVs "bank_init.csv", "pillar2a.csv", "taxes_init.csv". You can copy the example files for the folder example_data into the folder Initialisation
     
-2a) The "bank_init.csv" has the following structure:
+    2a) The "bank_init.csv" has the following structure:
 
-        It also contains information to initialize investment (pillar 2a, pillar 3a, interactive brokers) as only transaction are looked at
-        I opened a bank account in 2011 and listed the first money transfered from my old bank account to the new as "salary" and initialized the values on the other accounts.
-        You should add as "salary" the full amount you owned at the start date, then add the payment you made to investment platforms (pillar 3a, degiro interactive brokers with a negative value as this was leaving the account)
-    
+    It also contains information to initialize investment (pillar 2a, pillar 3a, interactive brokers) as only transaction are looked at
+    I opened a bank account in 2011 and listed the first money transfered from my old bank account to the new as "salary" and initialized the values on the other accounts.
+    You should add as "salary" the full amount you owned at the start date, then add the payment you made to investment platforms (pillar 3a, degiro interactive brokers with a negative value as this was leaving the account)
+
     2b) The "pillar2a.csv" has the following structure
 
-        For every salary you receive starting at the date Date you will have a new income going to pillar 2a based on the mentioned value. If you have a salary raise or how much you put in pillar 2a is changing you can add a new row with the start date and associated value.
-    
+    For every salary you receive starting at the date Date you will have a new income going to pillar 2a based on the mentioned value. If you have a salary raise or how much you put in pillar 2a is changing you can add a new row with the start date and associated value.
+
     2c) The "taxes_init.csv" has the following structure
 
-        In the description you can add "tax_add_manual" or "taxes_delete". I created this file if you want to smooth your taxes and remove the full amount paid once a year and add the monthly values
+    In the description you can add "tax_add_manual" or "taxes_delete". I created this file if you want to smooth your taxes and remove the full amount paid once a year and add the monthly values
 
 3) In the Exception_csv\categorization_exceptions.csv
-    The goal of this file is to identify and modify some transaction for a better categorisation (i.e. if you paid in advance for a holiday house 3 months before but your friends will pay you pack after the holiday you can "move" the initial payment to when you are paid pack to reflect the netto). You can copy the csv "categorization_exceptions.csv" from the example_data into the Exception_csv folder
+The goal of this file is to identify and modify some transaction for a better categorisation (i.e. if you paid in advance for a holiday house 3 months before but your friends will pay you pack after the holiday you can "move" the initial payment to when you are paid pack to reflect the netto). You can copy the csv "categorization_exceptions.csv" from the example_data into the Exception_csv folder
 
-    The csv has the following structure: description_substring,amount_min,amount_max,year_condition,year_min,year_max,month_condition,month_min,month_max,date_min,date_max,new_description,new_category,new_month,new_year,subject,category, Memo
+The csv has the following structure: description_substring,amount_min,amount_max,year_condition,year_min,year_max,month_condition,month_min,month_max,date_min,date_max,new_description,new_category,new_month,new_year,subject,category, Memo
 
 
 ## Technology
