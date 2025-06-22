@@ -1,9 +1,9 @@
-🚀 **Usage**  
+## 🚀 Usage 
 ├── Run **degiro_IB.py** to retrieve all trading data (stock closing, FX etc)  
 ├── Run **overview_free.py** to prepare all the banking data and display it
 
-
-The Dashboard has four sections:
+## Structure of the dashboard
+The Dashboard has **four sections**:
 - A range of **filters** to modify the data being visualised
 - Some high level **KPIs**
 - A few different **graphs**
@@ -38,11 +38,9 @@ Only the third dropdown is a bit more complex (called **Stock details**), it all
 - Restaurant current month vs last month
 - Dividends YTD and equity YTD
 
-
 ![Tree map wateral](assets/treemap_waterfall.png)
 1) Waterfall to see how you spend your money
 2) A tree map to visualise the larger categorise and deep dive in the sub categorise
-
 
 Below we see the lsat 3 graphs of the dashboard: 
 1) A monthly spent (excluding investment) of the dashboard, stacked values. As well as 3 ,6, 12 months rolling average
@@ -50,7 +48,10 @@ Below we see the lsat 3 graphs of the dashboard:
 3) A list of individual transactions (can be filtered using categorise or date time filters)
 ![Bottom graphs](assets/bottom_dashboard.png)
 
-How to set it up:
+## 📌 Motivation Behind the Project
+
+## How to set it up.
+The first initial setup is a bit longer as one needs to download the files, potentially apply some initialization or clustering.
 1) Download all the files (Bank transacations and Stocks transactions in the corresponding folder)
 2) In InputFiles\Initialisation you need to initiate the dashboard with the following information
 3) Column Description: Start Date Dashboard (put the date from which you started to use this account)
