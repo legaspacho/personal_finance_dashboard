@@ -69,6 +69,7 @@ The first initial setup is a bit longer as one needs to download the files, pote
     I have three CSVs "bank_init.csv", "pillar2a.csv", "taxes_init.csv"
     
     2a) The "bank_init.csv" has the following structure:
+
 ```csv
 Date,Amount,Original amount,Original currency,Exchange rate,Description,Subject,Category,Tags,Wise,Spaces,category
 01/10/2011,,,,,Start Date Dashboard,,,,,,
