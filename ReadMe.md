@@ -80,14 +80,20 @@ The first initial setup is a bit longer as one needs to download the files, pote
         You should add as "salary" the full amount you owned at the start date, then add the payment you made to investment platforms (pillar 3a, degiro interactive brokers with a negative value as this was leaving the account)
     
     2b) The "pillar2a.csv" has the following structure
+
+        ```csv
         Date,Amount,Original amount,Original currency,Exchange rate,Description,Subject,Category,Tags,Wise,Spaces,category
         01/01/2011,234.65,,,,PensionFund,,taxes,,,,pillar2a
+        ```
 
         For every salary you receive starting at the date Date you will have a new income going to pillar 2a based on the mentioned value. If you have a salary raise or how much you put in pillar 2a is changing you can add a new row with the start date and associated value.
     
     2c) The "taxes_init.csv" has the following structure
+        
+        ```csv
         Date,Amount,Original amount,Original currency,Exchange rate,Description,Subject,Category,Tags,Wise,Spaces,category
         30/09/2011,-5000,,,,taxes_delete,,taxes,,,,taxes
+        ```
 
         In the description you can add "tax_add_manual" or "taxes_delete". I created this file if you want to smooth your taxes and remove the full amount paid once a year and add the monthly values
 
