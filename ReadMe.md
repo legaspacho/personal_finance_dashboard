@@ -85,7 +85,6 @@ In my case **neon** is available as yearly csv in the mobile phone. All yearly c
 3) In the Exception_csv\categorization_exceptions.csv
 The goal of this file is to identify and modify some transaction for a better categorisation (i.e. if you paid in advance for a holiday house 3 months before but your friends will pay you pack after the holiday you can "move" the initial payment to when you are paid pack to reflect the netto). You can copy the csv "categorization_exceptions.csv" from the example_data into the Exception_csv folder
 
-The csv has the following structure: description_substring,amount_min,amount_max,year_condition,year_min,year_max,month_condition,month_min,month_max,date_min,date_max,new_description,new_category,new_month,new_year,subject,category, Memo
 
 
 ## Technology
