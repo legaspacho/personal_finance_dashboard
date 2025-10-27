@@ -7,65 +7,21 @@ import numpy as np
 import os
 from rapidfuzz import process, fuzz
 import re
+import unicodedata
 
 cwd = os.getcwd()
 
-flag_investments = ["interactive brockers","Crowdcube","Degiro","WIR Bank","Interactive","Terzo Vorsorgestiftung", \
-                        "Terzo Vorsorgestiftung der WIR Bank", "interactive brockers llc","Saving","Montre"]
-        
-flag_house = ["Daniel Dougas","Galissard","Dugas","Sunrise","SERAFE","ferraresi","Elektrizitat","Merbag", "Almagro", "Allreal", 'Livit', 'IKEA', 'La Redoute',\
-              "gaspard lhermitte and yasmine starein",'daniel pokras', 'hius']
-
-flag_salary = ["Alpiq","VILA OPLIMPICA", "Maritim", "Doboo"]
-flag_taxes = ["Bundessteuer", "Taxes","Steueramt", "Gaspard Lhermitte", "Kanton Zurich","Stadt"]
-flag_transportation = ["SBB","Lime"]
-flag_pillar2a = ["PKE"]
-flag_insurance = ["Assura","Sanitas","CSS Krankenversicherung","Krankenversicherung","Rega"]
-flag_food = ["Denner","Coop","Migros","La Fromagerie","fromagerie","Intermarche","7-Eleven", "Tritt Kase","Kiosk","LIAN HUA","Lian Hua","New Asia Market",\
-            "kiosk","Schaukaserei","Avec","Selecta","Barkat","Migrol","Sprungli","Alnatura","Relay","ALDI", "SPRUENGLI","Zio Ludi"]
-flag_other = ["MPOURTOUJOUR","Irene Serrano gonzalez","Credit Suisse (Schweiz) AG","Galaxus","VEG and the City","Present","present","lastpass",\
-                "Fromagerie","Fromagerie", "DONATION","Ilham"]
-flag_clothes = ["SuitSupply","Massimo Dutti","ADIDAS"]
-flag_sport = ["Minimum","minimum", "Gaswerk", "gaswerk","Sport Conrad","2nd Peak","Bergbahnen","Bergzeit","Sport","Mountain","Decathlon",\
-            "Berghaus","Chalet", "Ruedi", "Patagonia","Cry d'Er","RailAway Marktplatz","Capanna Piansecco","Padel","padel","Klosters",\
-                "Bike-Discount","Transa","seilbahn","sport","GOTCOURT","YAKIN", "Wheel","grimper","télèsieges", 'funicul', 'ticketino','télésiège']
-flag_entertainment = ["katakombe","Katakombe", "Spotify","Netflix","Frieda","Klaus","Vagabundo","BIERWERK","Moods","Rothaus","STUBA", "bar", "Bar",\
-                    "Raygrodski", "Irish Pub","Buttinette","Musikfest","Eventfrog","Katakombe","Dolder","Fat Tony","Si O No","El Lokal", \
-                    "ausschank", "La Bavaria","Elvetino","SI O NO","Music","Utoquai","HAUS AM FLUSS","Bottle Shop","BAR","25hours", \
-                    "Zerodix", "Omnia","Stadtbad","Bonne Cave","Franzos","Farinet","Openair","Pub", "Werdinsel","Buvette","Festival",\
-                    "bierwerk","Dynamo","Le Constellation", "ZHdK", "encounters","Bier","kino","169 west", "west zurich","Buvette", \
-                        "atelier", "Werdinsel","West","openair","festival","stadtbad","pub mont","cave","moods","zhdk","constellation","farinet", 'ticketcorner',\
-                    "zerodix","café des amis", 'eventi 2024', 'tixx', 'cineman', 'amboss rampe']
-flag_health =["OPHTALMO","CLINIC","OPTIK","Amavita","Apotheke","Checkpoint","PHARMACIE","arzt","buvette","dynamo","werdinsel","lokal","coffee"]
-flag_restaurant = ["Schweiss und E","UBS", "Schweizer & Eisen AG","Osteria", "Javier Bilbao", "Five Spice"," Achi","Lily","Pizzeria","Restaurant", \
-                "restaurant", "Ristorante","PIZZERIA","Burgermeister","MOENCHHOF","Santa Lucia","Napule","BISTROT","Uber Eats","Delhihouse","Molino",\
-                    "MISO","Taqueria","Illuminarium","Friends Corner","Frau Gerold","Chiriguito Del Vela","ramen","Kiosk Essen","Cafe","TWINT",\
-                    "Dal Noger", "Javier Fernandez", "Paulina", "Ecaterina", "PUTPUT",\
-                    "CAFE","PAULINA","Gastronomie","Pizza","Caffe","Oh My Greek","Kasheme","Rosso Arancio","FHNW", "meisterwerk", \
-                    "Vieilles Postes","GEBETA","Les Halles","Uber","Tenz","OHNE KEBAB", "Frau rGerold","BABETTE", "Burger King","Grill am See", \
-                    "LES HALLES","Tokyo Tapas","PHO VIETNAM", "PLATZ KEBA","Platz Keba", "les halles","Ramen","Brera","Arkadis",\
-                    "Raclette","OH MY GREEK","VAPIANO","Gelateria di Berna","Ooki","Thai","Ramen","La piccolina", "Hassan Sand",\
-                        "Nhan Deli","Chalet Savoyard","Binz & Kunz","Grazie","Gipfel","Vapiano","New Avataar","Micas","Stosschen",\
-                        "Hong Kong Food", "RESTAURANT", "Suan Long","Bistro","Shop in Shop","Pret a Manger","Panorama Rest",\
-                        "Too Good", "TooGood", "Baracca","maximilian brunner","Bebek","Moises torres","Emma just","Simon matter","Walker",\
-                        "RISTORANTE","BAKERY","TENZ","PASTA","ASCONA","mit&ohne","BURGERMEISTER","Food Truck","Vina","Gourme",\
-                        "Choppies","vito","roots","Hitzberger","Taillens","Edelweiss", "The Bite","Ruden","Celia","Shin","Aaron","Twint",\
-                        "Neue Taverne", "Jakob","Hiltl", "La Placita","Bottega", "Orient", "Olten","franzos","Stauffacher",
-                        "Bauernschaenke", "Mouchtar", "bottegone del vino", "la manufacture","kitchen republic", 'da pone', 'hai mangiato',\
-                        'frish-nah']
-    
-flag_holidays = ["SNCF","Constance quancard","Airbnb","jack Richard Peters","Alpenchalets","Timothy","Aer Lingus", "SWISS AIR", "SWISS INTL", \
-                "Juliette Combe","Lawrence Cox","THE FRONT DOOR","mytrip_ch","Mamejin","Alp-Hittae","SOCAR Energy","Shell", \
-                "Hotel Tiefenbach am","HOTEL","Atkinson","Juliette Marine Margaux Combe","Wise Payments Limited", "Hotel","EASYJET","Holiday",\
-                "holiday", "Colboc","AIR FRAN","Reisemediz","FILIALE","TCS","Yasmine","Fiona cheng","EDWARDS","KABULONGA","Lodg",\
-                "VERNIERE","normand","SHOPRITE","KLM","Fernandez","Rotondohutte","Bucher","DAVIVIENDA","BOGOTA","COLOMBIA","izquierdo","Sylvain"\
-                , "Mattis Koh", 'the people strasbourg','Goron', 'KOREAN']  
-
-flag_twint = ["UBS", "TWINT", "Twint", "Fernandez","Paulina","Javier Bilbao","Schweiss und E" ,"meisterwerk", "Ecaterina", "maximilian brunner", \
-            "Moises torres","Emma just","Simon matter","Yasmine", "Mattis Koh"]
-    
-flag_drop_row = ["Swisscard", "YOUR PAYMENT", "Credit Suisse (Schweiz) AG"]
-flag_pirates = ["WORDPRESS", "GODADDY"]
+def normalize(s: str) -> str:
+    if not isinstance(s, str):
+        return ""
+    # lower, strip accents, collapse spaces
+    s = s.lower().strip()
+    s = ''.join(
+        c for c in unicodedata.normalize('NFKD', s)
+        if not unicodedata.combining(c)
+    )
+    s = re.sub(r'\s+', ' ', s)
+    return s
 
 def initialisation_manual(df_all):
     file_path = f'{os.getcwd()}\\InputFiles\\Initialisation\\bank_init.csv'
@@ -148,6 +104,26 @@ def pillar2a(df_all):
         print("No files to initialise pillar 2a")
 
     return df_all
+
+def read_flags(cwd):
+    flag_dir  = fr"{cwd}\InputFiles\Flags"
+    if not os.path.exists(flag_dir):
+        print(f"⚠️ Folder {flag_dir} not found — no flags loaded.")
+
+    # Loop through all CSVs and create variables dynamically
+    for filename in os.listdir(flag_dir):
+        if filename.endswith(".csv"):
+            varname = os.path.splitext(filename)[0]  # e.g., e.csv → e
+            path = os.path.join(flag_dir, filename)
+            flags = (
+                pd.read_csv(path, header=None)[0]  # first column
+                .dropna()
+                .map(str.strip)
+                .tolist()
+            )
+            globals()[varname] = flags   # creates variable like e, flag_utilities
+            print(f"Loaded {varname} with {len(flags)} items.")
+    
 
 
 def apply_exceptions(cwd, df_all):
@@ -271,6 +247,7 @@ def apply_exceptions(cwd, df_all):
 
 
 def categorise(cwd, df_all):
+    read_flags(cwd)
     df_all['category'] = df_all['category'].astype('object')
     df_all.loc[(df_all["Original currency"].notna()) & (df_all["category"].isna()) & (df_all["Original currency"] != "CHF"), 'category'] = "holidays"
     df_all.loc[df_all["category"].isna(), 'category'] = "others"
@@ -466,7 +443,7 @@ def read_neon(cwd):
 def sbb_half_tax(df_all):
     modified_rows = []
     for index, row in df_all[(df_all["category"]=="transportation")&(df_all["Amount"]<=-1600)].iterrows():
-        Sbb_amount = row["Amount"] / 12 # make it monthly
+        Sbb_amount = row["Amount"] / 10 # make it monthly
         df_all = df_all.drop(labels=index, axis=0)
         row["Date"] = row["Date"] + relativedelta(months=-1)
         for month in range(1,13):

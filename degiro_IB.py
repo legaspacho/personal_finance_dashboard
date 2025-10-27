@@ -88,6 +88,7 @@ def get_daily_OpenClose(symbols, start_date, exception_lst, df_symbol_currency):
                         df['High'] = df['High'] * df['Rate']
                         df['Low'] = df['Low'] * df['Rate']
                         df['Close_CHF'] = df['Close'] * df['Rate']
+                        df['Close_CHF_constant'] = df['Close'] * df['Rate'].iloc[0]
                         df['Dividends_CHF'] = df['Dividends'] * df['Rate']
                         df['Currency'] = market_currency
                     else:
@@ -101,7 +102,7 @@ def get_daily_OpenClose(symbols, start_date, exception_lst, df_symbol_currency):
 
     combined_df = pd.concat(data_frames)
     combined_df.reset_index(inplace=True)
-    combined_df = combined_df[["Date","Dividends_CHF","Symbol","Close_CHF", "Stock Splits"]].copy()
+    combined_df = combined_df[["Date","Dividends_CHF","Symbol","Close_CHF", "Stock Splits", 'Close_CHF_constant']].copy()
     combined_df['Date'] = pd.to_datetime(combined_df['Date'], format='%Y-%m-%d')
     return combined_df
 
@@ -124,14 +125,14 @@ def get_daily_stock_data(symbols, start_date, exception_lst):
 
 def final_df(stock_data, df_all):
     stock_data = stock_data.sort_values(by=['Symbol', 'Date'], ascending=[True, False])
-    #stock_data['Cumsum_Splits'] = stock_data.groupby('Symbol')['Stock Splits'].cumsum()[::-1]
+
     stock_data['Cumsum_Splits'] = (
         stock_data['Stock Splits']
         .replace(0, 1) 
         .groupby(stock_data['Symbol']) 
         .cumprod()[::-1]  
     )
-    stock_data['Cumsum_Splits'].replace(0,np.nan, inplace=True) #We need a value of 1 to multiply
+    stock_data['Cumsum_Splits'] = stock_data['Cumsum_Splits'].replace(0,np.nan) #We need a value of 1 to multiply
     stock_data = stock_data.sort_values(by=['Symbol', 'Date'], ascending=[True, True])
 
     df_all = df_all[df_all["Asset Category"] != "Forex"].copy()
@@ -142,10 +143,10 @@ def final_df(stock_data, df_all):
 
     df_stock_value = pd.merge(stock_data, df_stocks, on = ["Date","Symbol"], how = 'outer')
     df_stock_value = df_stock_value.sort_values(by=['Symbol',"Date"])
-    df_stock_value["Cumsum_Splits"].fillna(1,inplace=True)
+    df_stock_value["Cumsum_Splits"] = df_stock_value["Cumsum_Splits"].fillna(1)
 
     df_stock_value['Quantity_cum'] = df_stock_value['Cumsum_Splits'] * df_stock_value['Quantity']
-    df_stock_value['Quantity_cum'].fillna(0, inplace=True)
+    df_stock_value['Quantity_cum'] = df_stock_value['Quantity_cum'].fillna(0)
 
     df_stock_value['Stock Quantity']  = df_stock_value.groupby('Symbol')['Quantity_cum'].cumsum()
 
@@ -154,6 +155,8 @@ def final_df(stock_data, df_all):
 
     import datetime
     df_stock_value["total_chf"] = df_stock_value["Stock Quantity"] * df_stock_value["Close_CHF"]
+    df_stock_value["total_chf_constant"] = df_stock_value["Stock Quantity"] * df_stock_value["Close_CHF_constant"]
+
     df_stock_value['Date'] = pd.to_datetime(df_stock_value['Date'])
     filter_date = datetime.date(2024, 9, 20)
     pd.set_option('display.max_columns', None)
@@ -161,8 +164,8 @@ def final_df(stock_data, df_all):
 
     #print( df_stock_value[df_stock_value["Date"].dt.date == filter_date]["total_chf"].sum())
     #print( df_stock_value[df_stock_value["Date"].dt.date == filter_date]["Dividends_tot"].sum())
-    df_stock_value = df_stock_value[["Date", "Symbol", "Stock Quantity","Close_CHF" ,"Dividends_tot","total_chf"]].copy()
-
+    df_stock_value = df_stock_value[["Date", "Symbol", "Stock Quantity","Close_CHF" ,"Dividends_tot","total_chf",'total_chf_constant']].copy()
+    print(df_stock_value)
     #print(df_stock_value[df_stock_value["Date"].dt.date == filter_date])
 
     return df_stock_value
@@ -308,7 +311,7 @@ def read_deposit(cwd):
     df_all = df_all[["Settle Date", "Amount"]].copy()
     df_all.rename(columns = {"Settle Date" : "Date"}, inplace = True)
     df_all['Date'] = pd.to_datetime(df_all['Date'], format='%Y-%m-%d')
-
+    """"""
     df_degiro = []
     file_names_degiro = [i for i in os.listdir(f'{cwd}\\InputFiles\\Degiro_deposit') if i[-4:] == ".csv"]
     for file_name in file_names_degiro:
@@ -321,7 +324,8 @@ def read_deposit(cwd):
     df_degiro['Date'] = pd.to_datetime(df_degiro['Date'], format='%d/%m/%Y')
 
     df_all = pd.concat([df_all, df_degiro], ignore_index=True)
-    df_all["Amount"].fillna(0, inplace=True)
+    
+    df_all["Amount"] = df_all["Amount"].fillna(0)
     df_all["Date"] = pd.to_datetime(df_all["Date"])
     df_all["Amount"] = df_all["Amount"].astype(float)
     df_daily = df_all.groupby("Date", as_index=False)['Amount'].sum()
@@ -353,10 +357,10 @@ def snp500(df_daily):
 
     combined_data = combined_data.reset_index(drop=False)
     combined_data["Date"] = pd.to_datetime(combined_data["Date"] )
-    combined_data = combined_data[["Date","Close_CHF", "Dividends_CHF"]].copy()
+    combined_data = combined_data[["Date","Close_CHF", "Dividends_CHF",'USD_CHF']].copy()
 
     df_snp = pd.merge(combined_data, df_daily, on = ["Date"], how = 'left')
-    df_snp["total_invested_chf"].fillna(0, inplace = True)
+    df_snp["total_invested_chf"] = df_snp["total_invested_chf"].fillna(0)
     df_snp["shares_eq"] = df_snp["total_invested_chf"] / df_snp["Close_CHF"]
 
     df_snp['shares_eq_cum']  = df_snp['shares_eq'].cumsum()
@@ -364,7 +368,9 @@ def snp500(df_daily):
     df_snp['Dividends_CHF_cum']  = df_snp['Dividends_shares_chf_tot'].cumsum()
     df_snp["shares_stock_div_cum"] = df_snp["shares_eq_cum"] + df_snp["Dividends_CHF_cum"]
     df_snp["stock_chf_tot"] = df_snp["shares_stock_div_cum"] * df_snp["Close_CHF"]
-    df_snp = df_snp[["Date", "stock_chf_tot"]].copy()
+
+    df_snp["stock_usd_tot"] = df_snp["stock_chf_tot"] / df_snp["USD_CHF"]
+    df_snp = df_snp[["Date", "stock_chf_tot","stock_usd_tot"]].copy()
     return df_snp
 
 def prepare_trading_inputs(cwd, plot_graph, manual_date_correction):

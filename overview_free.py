@@ -26,13 +26,13 @@ import numpy as np
 import math
 import os
 
-pd.options.mode.chained_assignment = 'raise'
-pd.set_option('mode.chained_assignment', 'raise')
+#pd.options.mode.chained_assignment = 'raise'
+#pd.set_option('mode.chained_assignment', 'raise')
 
 
 cwd = os.getcwd()
 path = f"{cwd}\\datasets"
-
+print(f'hello {path}')
 main(cwd)
 
 # create_dashboard()
@@ -833,7 +833,7 @@ def all_graphs( spent_aggregation, catgory_include, slider_date):
     df_category_sum = df_category_sum[~((df_category_sum["category"] == "others")&(df_category_sum["Amount"]>=8000))].copy()
     df_category_sum_pivot = pd.pivot(df_category_sum, index=['Date'], columns="category", values="Amount")
     df_category_sum_pivot.reset_index(inplace=True)  # drop frame pivot tables
-    df_category_sum_pivot.fillna(0, inplace=True)
+    df_category_sum_pivot = df_category_sum_pivot.fillna(0)
     df_category_sum_melt = df_category_sum_pivot.melt(id_vars=["Date"], var_name="category", value_name="Amount")
     df_category_sum = df_category_sum_melt
     df_category_sum['3m_roll'] = df_category_sum.groupby('category')['Amount'].rolling(window=3).mean().reset_index(drop=True)
@@ -1092,15 +1092,14 @@ def update_compare(stock_details, slider_date, children):
     df_spend_investment_sum['Amount'] = df_spend_investment_sum['Amount'] * -1
     df_spend_investment_sum["Amount_cum"] = df_spend_investment_sum['Amount'].cumsum()
 
-    df_snp_sum = df_snp.groupby(["Date"], as_index=False)[['stock_chf_tot']].sum()  # ,'category_name'        
+    df_snp_sum = df_snp.groupby(["Date"], as_index=False)[['stock_chf_tot','stock_usd_tot']].sum()  # ,'category_name'        
     df_snp_sum = df_snp_sum.sort_values(by='Date')
 
-    df_IB_degiro_sum = df_IB_degiro.groupby(["Date"], as_index=False)[['Dividends_tot',"total_chf"]].sum()  # ,'category_name'        
+    df_IB_degiro_sum = df_IB_degiro.groupby(["Date"], as_index=False)[['Dividends_tot',"total_chf",'total_chf_constant']].sum()  # ,'category_name'        
     df_IB_degiro_sum = pd.merge(df_IB_degiro_sum,df_spend_investment_sum, on = ["Date"],how='outer')
     df_IB_degiro_sum = df_IB_degiro_sum.sort_values(by='Date')
 
-    df_IB_degiro_sum[["Amount_cum", "Dividends_tot", "total_chf"]] = df_IB_degiro_sum[["Amount_cum", "Dividends_tot", "total_chf"]].ffill()
-
+    df_IB_degiro_sum[["Amount_cum", "Dividends_tot", "total_chf",'total_chf_constant']] = df_IB_degiro_sum[["Amount_cum", "Dividends_tot", "total_chf",'total_chf_constant']].ffill()
     current_year = pd.Timestamp.now().year
     df_current_year = df_IB_degiro_sum[df_IB_degiro_sum['Date'].dt.year == current_year].copy()
 
@@ -1115,9 +1114,7 @@ def update_compare(stock_details, slider_date, children):
         first_value = df_current_year[col].iloc[0] 
         last_value = df_current_year[col].iloc[-1]  
         ytd_deltas[f'{col}_delta_YTD'] = int(round(last_value - first_value,0))
-        #ytd_deltas[f'{col}_delta_YTD'] = (f"{ytd_deltas[f'{col}_delta_YTD']:,}") + " CHF"
     ytd_deltas["equity_YtD"] = "(" + "{:,.0f}".format(round(ytd_deltas["total_chf_delta_YTD"] - ytd_deltas["Amount_cum_delta_YTD"], 0)).replace(",", "'") + " CHF)"
-    # Display the results
     
     df_IB_degiro_sum["total_chf"] = df_IB_degiro_sum["total_chf"] + float(cash_float)
 
@@ -1125,13 +1122,30 @@ def update_compare(stock_details, slider_date, children):
         df_IB_degiro_sum = df_IB_degiro_sum[(df_IB_degiro_sum["Date"]>= start_date_str) & (df_IB_degiro_sum["Date"]<= end_date_str)]
         df_snp_sum = df_snp_sum[(df_snp_sum["Date"]>= start_date_str) & (df_snp_sum["Date"]<= end_date_str)]
         df_IB_degiro_sum = pd.merge(df_IB_degiro_sum, df_snp_sum, on =["Date"],how = "left")
-        df_IB_degiro_sum["stock_chf_tot"].ffill(inplace=True)
+        df_IB_degiro_sum["stock_chf_tot"] = df_IB_degiro_sum["stock_chf_tot"].ffill()
+        df_IB_degiro_sum["stock_usd_tot"] = df_IB_degiro_sum["stock_usd_tot"].ffill()
         graph_degiro_IB = go.Figure()
         graph_degiro_IB.add_trace(
             go.Scatter(
                 x=df_IB_degiro_sum["Date"],
                 y=df_IB_degiro_sum["total_chf"],
-                name="Degiro IB CHF",
+                name="Degiro_IB_CHF",
+                yaxis='y1',
+            )
+        )
+        graph_degiro_IB.add_trace(
+            go.Scatter(
+                x=df_IB_degiro_sum["Date"],
+                y=df_IB_degiro_sum["total_chf_constant"],
+                name="Degiro_IB_USD",
+                yaxis='y1',
+            )
+        )
+        graph_degiro_IB.add_trace(
+            go.Scatter(
+                x=df_IB_degiro_sum["Date"],
+                y=df_IB_degiro_sum["total_chf_constant"] - df_IB_degiro_sum["total_chf"],
+                name="Currency loss",
                 yaxis='y1',
             )
         )
@@ -1154,13 +1168,22 @@ def update_compare(stock_details, slider_date, children):
         graph_degiro_IB.add_trace(
             go.Scatter(
                 x=df_IB_degiro_sum["Date"],
+                y=df_IB_degiro_sum["stock_usd_tot"],
+                name="s&p 500 USD",
+                yaxis='y1',
+            )
+        )
+        
+        graph_degiro_IB.add_trace(
+            go.Scatter(
+                x=df_IB_degiro_sum["Date"],
                 y=df_IB_degiro_sum["Dividends_tot"],
                 name="Dividents CHF",
                 yaxis='y2',
             )
         )
-        y1_max = math.ceil(max([df_IB_degiro_sum["total_chf"].max(), df_IB_degiro_sum["Dividends_tot"].max()]) / 10000) * 10000
-        y1_min = math.floor(min([df_IB_degiro_sum["total_chf"].min(), df_IB_degiro_sum["Dividends_tot"].min()]) / 10000) * 10000
+        y1_max = math.ceil(max([df_IB_degiro_sum["stock_usd_tot"].max(),df_IB_degiro_sum["total_chf"].max(), df_IB_degiro_sum["Dividends_tot"].max()]) / 10000) * 10000
+        y1_min = math.floor(min([df_IB_degiro_sum["stock_usd_tot"].max(), df_IB_degiro_sum["total_chf"].min(), df_IB_degiro_sum["Dividends_tot"].min()]) / 10000) * 10000
         tickmarks = 5
         y1_tickvals = [y1_min + (y1_max - y1_min) / tickmarks * i for i in range(len([0] * tickmarks))]
         y1_tickvals.append(y1_min)
@@ -1176,7 +1199,6 @@ def update_compare(stock_details, slider_date, children):
             hoverlabel=dict(font_size=14, font_color='white'),  # Adjust hover label color
             title_font_size=14,
 
-            # Set the background colors for the overall layout and plot area
             paper_bgcolor='#333333',  # Background of the overall graph
             plot_bgcolor='#333333',   # Background of the plotting area
 

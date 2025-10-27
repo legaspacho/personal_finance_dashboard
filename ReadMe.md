@@ -63,7 +63,7 @@ The first initial setup is a bit longer as one needs to download the files, pote
 1) Download all the files (Bank transacations and Stocks transactions in the corresponding folder)
 In my case **neon** is available as yearly csv in the mobile phone. All yearly csv can be dropped in the correspoding folder
 **Swisscard** allows from the web to dwonload all transactions as csv. I normally download one year of transaction
-**Degiro, interactive brokers**: data can be downloaded as follow:
+**Degiro, interactive brokers**: data can be downloaded as follow: Performance & Reports > Statements > Activity Statements > Year to date, csv
 
 2) In InputFiles\Initialisation you need to initiate the dashboard with the following information
     I have three CSVs "bank_init.csv", "pillar2a.csv", "taxes_init.csv". You can copy the example files for the folder example_data into the folder Initialisation
@@ -84,7 +84,6 @@ In my case **neon** is available as yearly csv in the mobile phone. All yearly c
 
 3) In the Exception_csv\categorization_exceptions.csv
 The goal of this file is to identify and modify some transaction for a better categorisation (i.e. if you paid in advance for a holiday house 3 months before but your friends will pay you pack after the holiday you can "move" the initial payment to when you are paid pack to reflect the netto). You can copy the csv "categorization_exceptions.csv" from the example_data into the Exception_csv folder
-
 
 
 ## Technology
