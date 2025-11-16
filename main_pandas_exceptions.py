@@ -245,6 +245,158 @@ def apply_exceptions(cwd, df_all):
     return df_all
 
 
+def clean_postfinance(df_all, format):
+
+    if format == 'csv':
+        extracted = df_all['Description'].str.extract(r'CARTE N° XXXX\d{4} (.*?) ID PAIEMENT')[0]
+        df_all["Description"] = extracted.fillna(df_all['Description'])
+        extracted = df_all['Description'].str.extract(r'CARTE NO XXXX\d{4} (.*?)')[0]
+        df_all["Description"] = extracted.fillna(df_all['Description'])
+
+        extracted = df_all['Description'].str.extract(r'CRÉDIT CH\d{19} (.*?) REFERENCE DE L')[0]
+        df_all["Description"] = extracted.fillna(df_all['Description'])
+
+        extracted = df_all['Description'].str.extract(r'DÉBIT CH\d{19} (.*?) REFERENCE DE L')[0]
+        df_all["Description"] = extracted.fillna(df_all['Description'])
+
+        extracted = df_all['Description'].str.extract(r'DÉBIT CH\d{19} (.*?)')[0]
+        df_all["Description"] = extracted.fillna(df_all['Description'])
+
+        extracted = df_all['Description'].str.extract(r'CRÉDIT CH\d{19} (.*?)')[0]
+        df_all["Description"] = extracted.fillna(df_all['Description'])
+
+        extracted = df_all['Description'].str.extract(r'^(?:.*DESTINATAIRE PAIEMENT:.*)?DESTINATAIRE PAIEMENT:\s*(.*?)\s*ID DE TRANSACTION:')[0]
+        df_all["Description"] = extracted.fillna(df_all['Description'])
+
+        extracted = df_all['Description'].str.extract(r'DESTINATAIRE PAIEMENT:\s*(.*?)\s*ID DE TRANSACTION:')[0]
+        df_all["Description"] = extracted.fillna(df_all['Description'])
+
+        for index, row in df_all.iterrows():
+            if "RÉCEPTION D'ARGENT TWINT" in row["Description"]:
+                df_all.loc[index, "Description"] = "Twint" + row["Description"].split("41763588431")[1]
+            elif "41763588431 POUR NUMERO MOBILE" in row["Description"]:
+                df_all.loc[index, "Description"] = "Twint" + row["Description"].split("41763588431 POUR NUMERO MOBILE")[1]
+            elif "ACHAT/PRESTATION TWINT" in row["Description"]:
+                df_all.loc[index, "Description"] = "Achat" + row["Description"].split("41763588431")[1]
+    original_descriptions = df_all['Description'].copy()
+
+    original_descriptions = df_all['Description'].copy()
+
+    # Apply case-insensitive replacement
+    pattern = r'achat/prestation twint du\d{2}\.\d{2}\.\d{4} depuis le n° de téléphone \+\d+'
+    df_all['Description'] = df_all['Description'].str.replace(pattern, '', regex=True, flags=re.IGNORECASE).str.strip()
+
+    changed_rows = df_all[original_descriptions != df_all['Description']]
+    #print(changed_rows)
+    pattern = r'charge\s+cpte\s+carte\s+de\s+credit\s+[a-z]*\s*\d+\s+du\s+\d{2}\.\d{2}\.\d{4}'
+    df_all['Description'] = (
+        df_all['Description']
+        .str.replace(pattern, 'charge carte de credit', regex=True, flags=re.IGNORECASE)
+        .str.strip()
+    )
+
+    pattern = r"envoi d'argent twint du \d{2}\.\d{2}\.\d{4} pour numero mobile\. \+\d+\s*"
+    df_all['Description'] = (
+        df_all['Description']
+        .str.replace(pattern, '', regex=True, flags=re.IGNORECASE)
+        .str.strip()
+    )
+
+    df_all.loc[df_all['Description'].str.contains(r"retrait d'espèces", case=False, na=False), 'Description'] = "retrait d'espèces"
+
+
+    pattern = r"envoi d'argent twint du\d{2}\.\d{2}\.\d{4} depuis le n° de téléphone \+\d+ pour numero mobile\. \+\d+\s*"
+    df_all['Description'] = (
+        df_all['Description']
+        .str.replace(pattern, '', regex=True, flags=re.IGNORECASE)
+        .str.strip()
+    )
+
+    delete_lst = [
+        "CRÉDIT DONNEUR D'ORDRE:",
+    ]
+    for word in delete_lst:
+        df_all["Description"] = df_all["Description"].str.replace(word, "", regex=False)
+    return df_all
+
+
+def read_postfinance_xml(cwd, df_prev):
+    all_data = []
+    file_inputs = fr'{cwd}\InputFiles\Postfinance'
+    file_names = [i for i in os.listdir(file_inputs) if i[-4:] == ".xml"]
+
+    if file_names:
+        for filename in file_names:
+            filepath = os.path.join(file_inputs, filename)
+            print(f"Processing {filename}...")
+            all_data.extend(parse_xml_file(filepath))
+        
+        df_all = pd.DataFrame(all_data)
+        df_all["category"] = "others"
+        df_all.rename(columns={"ValueDate":"Date"}, inplace=True)
+        df_all["Amount"] = df_all["Amount"].astype(float)
+        df_all["Amount"] = df_all.apply(
+            lambda row: -float(row["Amount"]) if row["CreditDebit"] == "DBIT" else float(row["Amount"]),
+            axis=1
+        )
+        df_all.replace('', 0, inplace=True)  # Replace empty strings
+        df_all.fillna(0, inplace=True)        # Replace NaN values
+        df_all["Date"] = pd.to_datetime(df_all['Date'], format='%Y-%m-%d')
+        df_all['Date'] = df_all['Date'].dt.strftime('%Y-%m-%d')
+        df_all = df_all[["Date","category","Description","Amount"]].copy()
+        df_all = clean_postfinance(df_all,'xml')
+        if df_prev is not None:
+            df_all = pd.concat([df_prev, df_all])
+    else:
+        print("No files from post finance found")        
+        if df_prev is not None:
+            return df_prev
+        else:
+            return None
+    return df_all
+
+
+def read_postfinance_csv(cwd, df_prev):
+    file_inputs = fr'{cwd}\InputFiles\Postfinance'
+    file_names = [i for i in os.listdir(file_inputs) if i[-4:] == ".csv"]
+    df_all = []
+    if file_names:
+        for file_name in file_names:
+            df_valid, df_postprocess = process_data(f'{file_inputs}\\{file_name}')
+            df_valid, new_header = process_valid(df_valid)
+            df_postprocess = process_postprocess(df_postprocess, new_header)
+
+            df = pd.concat([df_postprocess, df_valid]).reset_index(drop=True)
+            df_all.append(df)
+        df_all = pd.concat(df_all)
+
+        df_all = df_all.rename(columns={"Texte de notification":"Description"})
+        df_all.replace('', 0, inplace=True)  # Replace empty strings
+        df_all.fillna(0, inplace=True)        # Replace NaN values
+        df_all["Débit en CHF"] = df_all["Débit en CHF"].astype(float)
+        df_all["Crédit en CHF"] = df_all["Crédit en CHF"].astype(float)
+        df_all["Amount"] = df_all["Débit en CHF"] + df_all["Crédit en CHF"] 
+        df_all = df_all.drop(columns = ["Débit en CHF", "Crédit en CHF"])
+        df_all["Date"] = pd.to_datetime(df_all['Date'], format='%d.%m.%Y')
+        df_all['Date'] = df_all['Date'].dt.strftime('%Y-%m-%d')
+
+        df_all["category"] = "others"
+        df_all["sub-category"] = np.nan
+        df_all = df_all[["Date","category","Description","Amount"]].copy()
+        
+        df_all = clean_postfinance(df_all,'csv')
+
+        if df_prev is not None:
+            df_all = pd.concat([df_prev, df_all])
+    else:
+        print("No files from post finance found")        
+        if df_prev is not None:
+            return df_prev
+        else:
+            return None
+
+    return df_all
+
 
 def categorise(cwd, df_all):
     read_flags(cwd)
@@ -260,8 +412,8 @@ def categorise(cwd, df_all):
             if (flag.lower() in row["Description"].lower()) & (skip == False):
                 df_all.loc[index, "category"] = "salary"
                 skip = True
-                if flag.lower() != "alpiq": #Note de frais et voyage rembourse
-                    df_all.loc[index, "Description"] = "Alpiq"
+                if flag.lower() != "salary": #Note de frais et voyage rembourse
+                    df_all.loc[index, "Description"] = "salary"
                     df_all.loc[index, "category"] = "salary"
         #Investments
         for flag in flag_investments:
@@ -680,7 +832,8 @@ def main(cwd):
     df_all = read_neon(cwd)
     df_all = read_zkb(cwd, df_all)
     df_all = swisscard(cwd, df_all)
-    df_all = read_postfiannce(cwd, df_all)
+    df_all = read_postfinance_csv(cwd, df_all)
+    df_all = read_postfinance_xml(cwd, df_all)
     df_all = initialisation_manual(df_all)
     df_all = initialisation_taxes(df_all)
     df_all["Description"] = df_all["Description"].astype(str)

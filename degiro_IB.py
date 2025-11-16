@@ -14,6 +14,7 @@ from datetime import datetime
 import numpy as np
 import os
 import yfinance as yf
+from datetime import timedelta
 
 #%% Reading all the csv files from Interactive brokers
 cwd = os.getcwd()
@@ -51,20 +52,183 @@ def read_csv_with_identifier(filepath, identifier):
     return df
 
 
-def get_exchange_rates(base_currency, target_currency='CHF', start_date='2021-01-01'):
-    # Fetch historical data for the currency pair
-    currency_pair = f'{base_currency}{target_currency}=X'
+
+def get_exchange_rates(base_currency, target_currency='CHF', start_date='2021-01-01',
+                       max_backdays=5, verbose=False):
+    """
+    Fetch historical exchange rates base_currency -> target_currency as 'Rate'.
+    If history(start=...) returns empty, step start_date back one day at a time
+    up to max_backdays and retry. If still empty, try period='5d' as a final fallback.
+
+    Returns DataFrame indexed by Date (date objects) with column 'Rate'.
+    """
+    # Normalize currencies and basic checks
+    base_currency = str(base_currency).upper()
+    target_currency = str(target_currency).upper()
+    if base_currency == target_currency:
+        # trivial rate = 1.0 for the requested date range: try to return a small series
+        today = pd.Timestamp.today().normalize().date()
+        return pd.DataFrame({"Rate": [1.0]}, index=pd.Index([today], name="Date"))
+
+    currency_pair = f"{base_currency}{target_currency}=X"
     ticker = yf.Ticker(currency_pair)
-    exchange_df = ticker.history(start=start_date, interval='1d')
-    exchange_df = exchange_df[['Close']]  # Use 'Close' as the exchange rate
-    exchange_df.rename(columns={'Close': 'Rate'}, inplace=True)
-    exchange_df.index = exchange_df.index.date  # Convert index to date only
-    exchange_df.index.name = 'Date'
-    return exchange_df
+
+    # Normalize start_date to a pandas Timestamp (date only)
+    start_ts = pd.to_datetime(start_date)
+    # If the provided start is in the future, set it to today
+    today_ts = pd.Timestamp.today().normalize()
+    if start_ts > today_ts:
+        if verbose:
+            print(f"start_date {start_ts.date()} is in the future — using today {today_ts.date()} as starting point")
+        start_ts = today_ts
+
+    # Try the initial start and then step back one day at a time
+    exchange_df = pd.DataFrame()
+    attempts = 0
+    current_start = start_ts
+
+    while attempts <= max_backdays:
+        if verbose:
+            print(f"Attempt {attempts+1}: requesting history(start={current_start.date()}) for {currency_pair}")
+        try:
+            exchange_df = ticker.history(start=current_start.strftime("%Y-%m-%d"), interval="1d")
+        except Exception as e:
+            if verbose:
+                print(f"history call raised: {e}")
+            exchange_df = pd.DataFrame()
+
+        if not exchange_df.empty:
+            if verbose:
+                print(f"Got data on attempt {attempts+1} starting {current_start.date()}")
+            break
+
+        # step back one calendar day and retry
+        current_start = current_start - timedelta(days=1)
+        attempts += 1
+
+    # Final fallback: try recent period if still empty
+    if exchange_df.empty:
+        if verbose:
+            print(f"No data after {attempts} back-steps — trying period='5d' fallback for {currency_pair}")
+        try:
+            exchange_df = ticker.history(period="5d", interval="1d")
+        except Exception as e:
+            if verbose:
+                print(f"period fallback raised: {e}")
+            exchange_df = pd.DataFrame()
+
+    # If still empty, return empty DataFrame
+    if exchange_df.empty:
+        if verbose:
+            print(f"⚠️ No FX data available for {currency_pair}")
+        return exchange_df
+
+    # Normalize and return
+    if "Close" not in exchange_df.columns and "close" in exchange_df.columns:
+        exchange_df.rename(columns={"close": "Close"}, inplace=True)
+
+    result = exchange_df[["Close"]].copy()
+    result.rename(columns={"Close": "Rate"}, inplace=True)
+    # make index plain date objects and name it 'Date'
+    result.index = pd.to_datetime(result.index).date
+    result.index.name = "Date"
+    return result
+
+
+def parse_option_symbol(option_str):
+    """
+    Parse an option string like 'GOOG 16JAN26 150 C' into components.
+    """
+    parts = option_str.strip().split()
+    if len(parts) != 4:
+        raise ValueError(f"Invalid option format: {option_str}")
+
+    underlying, date_str, strike, opt_type = parts
+    expiry = datetime.strptime(date_str, "%d%b%y").strftime("%Y-%m-%d")
+
+    return {
+        "Underlying": underlying.upper(),
+        "Expiry": expiry,
+        "Strike": float(strike),
+        "Type": opt_type.upper(),
+    }
+def get_option_info(option_str, start_date, get_exchange_rates):
+    parsed = parse_option_symbol(option_str)
+    underlying = parsed["Underlying"]
+    expiry = parsed["Expiry"]
+    strike = parsed["Strike"]
+    call_put = parsed["Type"]
+
+    ticker = yf.Ticker(underlying)
+
+    try:
+        info = ticker.info
+        currency = info.get("currency", "USD")
+    except Exception:
+        currency = "USD"
+
+    try:
+        chain = ticker.option_chain(expiry)
+    except Exception as e:
+        print(f"Could not fetch option chain for {underlying} {expiry}: {e}")
+        return None
+
+    df = chain.calls if call_put.upper() == "C" else chain.puts
+    row = df[df["strike"] == strike]
+    if row.empty:
+        print(f"Option not found for {option_str}")
+        return None
+
+    today = datetime.now().strftime("%Y-%m-%d")
+    latest_close = row["lastPrice"].values[0]
+    date_retrieved = pd.to_datetime(today)
+
+    if currency != "CHF":
+        exchange_df = get_exchange_rates(currency, "CHF", date_retrieved)
+        if not exchange_df.empty:
+            rate = exchange_df["Rate"].iloc[-1]
+        else:
+            rate = 1.0
+    else:
+        rate = 1.0
+
+    close_chf = latest_close * rate
+
+    start_date_dt = pd.to_datetime(start_date)
+    end_date_dt = pd.to_datetime(today)
+    date_range = pd.date_range(start=start_date_dt, end=end_date_dt, freq="B")
+    date_range = date_range.strftime("%Y-%m-%d")
+
+    df_data = pd.DataFrame({
+        "Date": date_range,
+        "Symbol": option_str,
+        "Currency": currency,
+        "Close": latest_close,
+        "Close_CHF": close_chf,
+        "Close_CHF_constant": close_chf,   # same value now, can adjust later if needed
+        "Dividends": 0.0,
+        "Rate" : 1.0,
+        "Volume" : 1.0,
+        "Currency" : 'USD',
+        "Capital Gains": 0.0,
+        "Dividends_CHF": 0.0,
+        "Stock Splits": 0.0,
+        'Open': 0.0,
+        'High': 0.0,
+        'Low': 0.0,
+    })
+
+    df_data = df_data.ffill().bfill()
+    df_data = df_data[['Date', 'Open', 'High', 'Low', 'Close', 'Volume', 'Dividends',
+       'Stock Splits', 'Capital Gains', 'Symbol', 'Rate', 'Close_CHF',
+       'Close_CHF_constant', 'Dividends_CHF', 'Currency']]
+    #df_data = df_data[["Date", "Dividends_CHF", "Symbol", "Close_CHF", "Stock Splits", "Close_CHF_constant"]]
+
+    return df_data
 
 def get_daily_OpenClose(symbols, start_date, exception_lst, df_symbol_currency):
     data_frames = []
-
+    data_options = []
     for symbol in symbols:
         if symbol not in exception_lst:
             ticker = yf.Ticker(symbol)
@@ -73,7 +237,6 @@ def get_daily_OpenClose(symbols, start_date, exception_lst, df_symbol_currency):
                 df.index = df.index.date  # Convert index to date only
                 df['Symbol'] = symbol
                 # Assume the ticker's currency is the same as its stock market currency
-                #market_currency = ticker.info.get('currency', 'USD')
                 market_currency = df_symbol_currency[df_symbol_currency["Symbol"]==symbol]["Currency"].iloc[0]
 
                 if market_currency != 'CHF':
@@ -95,16 +258,31 @@ def get_daily_OpenClose(symbols, start_date, exception_lst, df_symbol_currency):
                         df['Currency'] = market_currency
                 else:
                     df['Currency'] = 'CHF'
-
-                data_frames.append(df)
+                if df is not None:
+                    data_frames.append(df)
             except Exception as e:
-                print(f"Error fetching exchange rates for {e}")
+                
+                parts = symbol.strip().split()
+                is_option = len(parts) == 4 and parts[3].upper() in ["C", "P"]
+                if is_option:
+                    try:
+                        df_option = get_option_info(symbol, start_date, get_exchange_rates)
+                        if df_option is not None:
+                            data_options.append(df_option)
+                    except Exception as e:
+                        print(f"Error fetching option data for {symbol}: {e}")
 
     combined_df = pd.concat(data_frames)
+    data_options = pd.concat(data_options)
     combined_df.reset_index(inplace=True)
-    combined_df = combined_df[["Date","Dividends_CHF","Symbol","Close_CHF", "Stock Splits", 'Close_CHF_constant']].copy()
-    combined_df['Date'] = pd.to_datetime(combined_df['Date'], format='%Y-%m-%d')
-    return combined_df
+    data_options.reset_index(inplace=True, drop=True)
+
+    df_all = pd.concat([combined_df, data_options], ignore_index=True)
+    df_all = df_all[["Date","Dividends_CHF","Symbol","Close_CHF", "Stock Splits", 'Close_CHF_constant']].copy()
+    df_all['Date'] = pd.to_datetime(df_all['Date'], format='%Y-%m-%d')
+    df_all = df_all.dropna(subset=["Date"]).copy()
+    #df_all.to_csv(r'datasets\tests_options.csv',index=False)
+    return df_all
 
 def get_daily_stock_data(symbols, start_date, exception_lst):
     data_frames = []
@@ -124,6 +302,7 @@ def get_daily_stock_data(symbols, start_date, exception_lst):
     return data_frames
 
 def final_df(stock_data, df_all):
+    asset_category = ['Stocks', 'Equity and Index Options']
     stock_data = stock_data.sort_values(by=['Symbol', 'Date'], ascending=[True, False])
 
     stock_data['Cumsum_Splits'] = (
@@ -136,7 +315,9 @@ def final_df(stock_data, df_all):
     stock_data = stock_data.sort_values(by=['Symbol', 'Date'], ascending=[True, True])
 
     df_all = df_all[df_all["Asset Category"] != "Forex"].copy()
-    df_stocks = df_all[df_all["Asset Category"] == "Stocks"].copy()
+
+    df_stocks = df_all[df_all["Asset Category"].isin(asset_category)].copy()
+    df_stocks.loc[df_stocks["Asset Category"] == "Equity and Index Options", "Quantity"] *= 100
 
     df_stocks = df_stocks[['Date',"Symbol","Quantity"]].copy()
     df_stocks['Quantity'] = pd.to_numeric(df_stocks['Quantity'], errors='coerce')
@@ -162,11 +343,8 @@ def final_df(stock_data, df_all):
     pd.set_option('display.max_columns', None)
     pd.set_option('display.expand_frame_repr', False)
 
-    #print( df_stock_value[df_stock_value["Date"].dt.date == filter_date]["total_chf"].sum())
-    #print( df_stock_value[df_stock_value["Date"].dt.date == filter_date]["Dividends_tot"].sum())
     df_stock_value = df_stock_value[["Date", "Symbol", "Stock Quantity","Close_CHF" ,"Dividends_tot","total_chf",'total_chf_constant']].copy()
-    print(df_stock_value)
-    #print(df_stock_value[df_stock_value["Date"].dt.date == filter_date])
+
 
     return df_stock_value
 
@@ -287,9 +465,7 @@ def read_IB(file_names):
     df_all['Date/Time'] = pd.to_datetime(df_all['Date/Time'], format='%Y-%m-%d, %H:%M:%S')
     df_all['Date'] = df_all['Date/Time'].dt.date
     df_all = df_all[["Date","Symbol","Quantity", "Asset Category","Currency"]].copy()
-    #df_all = df_all[df_all["Symbol"] =="TBIL"].copy()
     df_all['Quantity'] = pd.to_numeric(df_all['Quantity'], errors='coerce')
-    #print(df_all)
 
     new_row = [
             {'Date':'2024-09-11', 'Symbol': "SIRI", 'Quantity':67, 'Asset Category' :"Stocks", "Currency":"USD"}, 
@@ -378,8 +554,10 @@ def prepare_trading_inputs(cwd, plot_graph, manual_date_correction):
     df_IB = read_IB(file_names_IB)
     df_degiro = read_degiro()
     
-    #Merge and get Stock data
-    df_all = pd.concat([df_IB,df_degiro])
+    dfs = [df for df in [df_IB, df_degiro] if df is not None and not df.empty]
+    if dfs:
+        df_all = pd.concat(dfs, ignore_index=True)
+
     df_all = df_all.groupby(['Date', 'Symbol',"Asset Category","Currency"], as_index=False)['Quantity'].sum()
     
     df_all = df_all[df_all["Asset Category"] != "Forex"].copy()
@@ -397,11 +575,17 @@ def prepare_trading_inputs(cwd, plot_graph, manual_date_correction):
     
     df_final = final_df(stock_data, df_all)
     us_holidays = holidays.US(years=df_final['Date'].dt.year.unique())
+    us_holidays = pd.to_datetime(list(us_holidays.keys()))
+    manual_date_correction = pd.to_datetime(manual_date_correction)
+    
     df_final = df_final[~df_final['Date'].isin(us_holidays)]
     df_final = df_final[df_final["Date"] != df_final["Date"].max()].copy()
     df_final = df_final[~(df_final["Date"].isin(manual_date_correction))].copy()
 
-    drop_date_closed = ["2025-01-09T00:00:00.000000000"]
+    drop_date_closed = ["2025-01-09T00:00:00.000000000", '']
+    drop_date_closed = ["2025-01-09", '2025-04-18','2025-04-21', '2025-04-22','2024-03-29','2023-04-07','2023-04-15']
+    drop_date_closed = pd.to_datetime(drop_date_closed)
+
     df_final = df_final[~(df_final["Date"].isin(drop_date_closed))].copy()
     df_final.to_csv(f'{cwd}\\datasets\\IB_degiro.csv', index=False)
     
