@@ -613,8 +613,12 @@ def prepare_trading_inputs(cwd, plot_graph, manual_date_correction):
     df_cash = []
     max_year = 2000
     for file_name in file_names_IB:
-        if int(file_name[:-4]) > max_year:
-            max_year = int(file_name[:-4])
+        try:
+            year = int(file_name[:-4])
+        except ValueError:
+            continue
+        if year > max_year:
+            max_year = year
             df_cash = read_csv_with_identifier(f'{cwd}\\InputFiles\\IB\\{file_name}', "Cash Report")
     df_cash = df_cash[["Currency Summary","Currency","Total"]].copy()
     df_cash = df_cash[df_cash["Currency Summary"]=="Ending Settled Cash"].copy()
