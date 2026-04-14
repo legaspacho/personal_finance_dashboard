@@ -11,7 +11,8 @@ from datetime import datetime
 import dash_bootstrap_components as dbc
 from dash import Input, Output, html, dcc, dash
 from main_pandas_exceptions import main
-from dash.dash_table import DataTable
+from buy_vs_rent import calculate_mortgage_schedule, calculate_property_investment_summary, simulate_rent_vs_investment
+from dash.dash_table import DataTable, Format
 from scipy.optimize import root
 import numpy as np
 import math
@@ -102,7 +103,23 @@ months, max_value, start_month = generate_months()
 
 # Sorting operators (https://dash.plotly.com/datatable/filtering)
 
-app.layout = html.Div(
+# Buy vs Rent default inputs
+BVR_DEFAULTS = {
+    'purchase_price': 600000, 'own_funds_ratio': 30, 'interest_rate': 3,
+    'insurance_rate': 0.04, 'mortgage_duration_years': 15, 'one_off_fees_ratio': 10,
+    'flat_maintenance_rate': 0.5, 'nebenkosten_per_year': 2500, 'annual_growth_rate': 2,
+    'monthly_rent': 1800, 'rent_inflation_rate': 1, 'stock_market_return': 6,
+    'total_simulation_years': 30,
+}
+
+def bvr_input(label, id_name, default_value, step=0.01):
+    return html.Div([
+        html.Label(label, style={'color': 'white'}),
+        dcc.Input(id=id_name, type='number', value=default_value, min=0, step=step,
+                  style={'backgroundColor': '#444444', 'color': 'white', 'border': '1px solid #555', 'width': '100%'})
+    ], style={'padding': '8px', 'display': 'inline-block', 'width': '30%', 'minWidth': '200px'})
+
+tab_finance = html.Div(
     children=[
         html.Div(id="app_init"),
         
@@ -467,6 +484,55 @@ app.layout = html.Div(
         ])
     ]
 )
+
+tab_buy_vs_rent = html.Div(style={'backgroundColor': '#1a1a1a', 'padding': '20px'}, children=[
+    html.H2("Real Estate: Buy vs. Rent Simulator", className="text-white", style={'textAlign': 'center'}),
+    html.Div(style={'border': '1px solid #555', 'padding': '10px', 'borderRadius': '5px', 'backgroundColor': '#333333'}, children=[
+        bvr_input("Purchase Price (CHF)", "bvr-purchase-price", BVR_DEFAULTS['purchase_price'], step=10000),
+        bvr_input("Own Funds (%)", "bvr-own-funds", BVR_DEFAULTS['own_funds_ratio'], step=1),
+        bvr_input("Mortgage Rate (%)", "bvr-interest-rate", BVR_DEFAULTS['interest_rate'], step=0.1),
+        bvr_input("Mortgage Duration (Years)", "bvr-duration", BVR_DEFAULTS['mortgage_duration_years'], step=1),
+        bvr_input("Notary Fees (%)", "bvr-notary-fees", BVR_DEFAULTS['one_off_fees_ratio'], step=0.5),
+        bvr_input("Property Growth (%/yr)", "bvr-growth", BVR_DEFAULTS['annual_growth_rate'], step=0.5),
+        bvr_input("Monthly Rent (CHF)", "bvr-rent", BVR_DEFAULTS['monthly_rent'], step=100),
+        bvr_input("Rent Inflation (%/yr)", "bvr-rent-inflation", BVR_DEFAULTS['rent_inflation_rate'], step=0.1),
+        bvr_input("Stock Return (%/yr)", "bvr-stock-return", BVR_DEFAULTS['stock_market_return'], step=0.5),
+        bvr_input("Maintenance (% of price/yr)", "bvr-maintenance", BVR_DEFAULTS['flat_maintenance_rate'], step=0.1),
+        bvr_input("Nebenkosten (CHF/yr)", "bvr-nebenkosten", BVR_DEFAULTS['nebenkosten_per_year'], step=100),
+        bvr_input("Simulation Years", "bvr-sim-years", BVR_DEFAULTS['total_simulation_years'], step=1),
+    ]),
+    html.Div(id='bvr-summary-text', style={'color': 'white', 'padding': '15px', 'fontSize': '16px'}),
+    dcc.Graph(id='bvr-graph', style={'height': '600px'}),
+    dbc.Row([
+        dbc.Col(dbc.Card([
+            dbc.CardHeader("Property Investment Summary", className="text-white"),
+            DataTable(id='bvr-invest-table', columns=[], data=[], page_size=15,
+                style_header={'backgroundColor': '#444444', 'color': 'white', 'fontWeight': 'bold'},
+                style_cell={'backgroundColor': '#333333', 'color': 'white', 'border': '1px solid #444444'},
+                style_table={'overflowX': 'auto'}),
+        ], style={'backgroundColor': '#333333'}), width=6),
+        dbc.Col(dbc.Card([
+            dbc.CardHeader("Rent vs. Investment Summary", className="text-white"),
+            DataTable(id='bvr-rent-table', columns=[], data=[], page_size=15,
+                style_header={'backgroundColor': '#444444', 'color': 'white', 'fontWeight': 'bold'},
+                style_cell={'backgroundColor': '#333333', 'color': 'white', 'border': '1px solid #444444'},
+                style_table={'overflowX': 'auto'}),
+        ], style={'backgroundColor': '#333333'}), width=6),
+    ], className="mb-4"),
+])
+
+app.layout = html.Div(style={'backgroundColor': '#1a1a1a'}, children=[
+    dcc.Tabs(id='main-tabs', value='tab-finance', children=[
+        dcc.Tab(label='Finance Dashboard', value='tab-finance',
+            style={'backgroundColor': '#333333', 'color': 'white', 'padding': '10px'},
+            selected_style={'backgroundColor': '#1a1a1a', 'color': 'white', 'borderTop': '2px solid #119dff', 'padding': '10px'},
+            children=[tab_finance]),
+        dcc.Tab(label='Buy vs. Rent', value='tab-bvr',
+            style={'backgroundColor': '#333333', 'color': 'white', 'padding': '10px'},
+            selected_style={'backgroundColor': '#1a1a1a', 'color': 'white', 'borderTop': '2px solid #119dff', 'padding': '10px'},
+            children=[tab_buy_vs_rent]),
+    ]),
+])
 
 
 @app.callback(
@@ -1298,6 +1364,67 @@ def update_yoy(category, children):
         yaxis=dict(title=f"{category} spend (CHF)"),
     )
     return fig
+
+
+@app.callback(
+    [Output('bvr-graph', 'figure'),
+     Output('bvr-summary-text', 'children'),
+     Output('bvr-invest-table', 'data'), Output('bvr-invest-table', 'columns'),
+     Output('bvr-rent-table', 'data'), Output('bvr-rent-table', 'columns')],
+    [Input('bvr-purchase-price', 'value'), Input('bvr-own-funds', 'value'),
+     Input('bvr-interest-rate', 'value'), Input('bvr-duration', 'value'),
+     Input('bvr-notary-fees', 'value'), Input('bvr-growth', 'value'),
+     Input('bvr-rent', 'value'), Input('bvr-rent-inflation', 'value'),
+     Input('bvr-stock-return', 'value'), Input('bvr-maintenance', 'value'),
+     Input('bvr-nebenkosten', 'value'), Input('bvr-sim-years', 'value')],
+)
+def update_bvr(purchase_price, own_funds_pc, interest_pc, duration, notary_pc,
+               growth_pc, rent, rent_infl_pc, stock_pc, maint_pc, nebenkosten, sim_years):
+    if not all([purchase_price, own_funds_pc, interest_pc, duration, rent, sim_years]):
+        return go.Figure(), "", [], [], [], []
+
+    r = {
+        'own_funds': own_funds_pc / 100, 'interest': interest_pc / 100,
+        'insurance': 0.04 / 100, 'notary': (notary_pc / 100) * purchase_price,
+        'maintenance': maint_pc / 100, 'growth': growth_pc / 100,
+        'rent_infl': rent_infl_pc / 100, 'stock': stock_pc / 100,
+    }
+    mortgage_dur = min(duration, sim_years)
+
+    summary = calculate_property_investment_summary(
+        purchase_price, r['own_funds'], r['interest'], r['insurance'],
+        r['maintenance'], nebenkosten, 0, mortgage_dur, r['growth'], r['notary'])
+
+    rent_df = simulate_rent_vs_investment(rent, r['rent_infl'], summary.iloc[:sim_years], r['stock'])
+
+    comp = pd.merge(summary, rent_df, on='Year')
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(x=comp['Year'], y=comp['Net Worth'], mode='lines+markers', name='Net Worth (Buying)'))
+    fig.add_trace(go.Scatter(x=comp['Year'], y=comp['Net Remaining'], mode='lines+markers', name='Net Worth (Renting & Investing)'))
+    fig.add_trace(go.Scatter(x=comp['Year'], y=comp['Total Invested cum'], mode='lines', name='Total Invested (Cum.)', line=dict(dash='dash')))
+    apply_dark_theme(fig, hovermode='x unified',
+        xaxis=dict(title='Year'), yaxis=dict(title='Value (CHF)'))
+
+    final = comp.iloc[-1]
+    delta = final['Net Remaining'] - final['Net Worth']
+    winner = "Renting & Investing" if delta > 0 else "Buying"
+    color = '#00CC66' if delta > 0 else '#FF4444'
+    summary_text = html.Div([
+        html.Span(f"After {sim_years} years: "),
+        html.Span(f"Buying: {final['Net Worth']:,.0f} CHF | Renting: {final['Net Remaining']:,.0f} CHF | "),
+        html.Span(f"{winner} wins by {abs(delta):,.0f} CHF", style={'color': color, 'fontWeight': 'bold'}),
+    ])
+
+    num_fmt = Format.Format(precision=0, group=',', scheme=Format.Scheme.fixed)
+    inv_cols = ['Year', 'Net Worth', 'Asset Worth', 'Remaining Debt', 'Total Invested cum', 'Sunk Cost', 'Amortized', 'Own funds']
+    inv_df = summary[inv_cols].iloc[:sim_years]
+    inv_columns = [{'name': c, 'id': c, 'type': 'numeric', 'format': num_fmt} if c != 'Year' else {'name': c, 'id': c} for c in inv_df.columns]
+
+    rent_cols = ['Year', 'Investment Value', 'Inflated Rent', 'Available to Invest', 'Total invested', 'Yearly sp500']
+    r_df = rent_df[rent_cols]
+    rent_columns = [{'name': c, 'id': c, 'type': 'numeric', 'format': num_fmt} if c != 'Year' else {'name': c, 'id': c} for c in r_df.columns]
+
+    return fig, summary_text, inv_df.to_dict('records'), inv_columns, r_df.to_dict('records'), rent_columns
 
 
 if __name__ == "__main__":
