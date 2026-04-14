@@ -1,93 +1,196 @@
-## 🚀 Usage 
-├── Run **degiro_IB.py** to retrieve all trading data (stock closing, FX etc)  
-├── Run **overview_free.py** to prepare all the banking data and display it
+# 💰 Personal Finance Dashboard
 
-## Structure of the dashboard
-The Dashboard has **four sections**:
-- A range of **filters** to modify the data being visualised
-- Some high level **KPIs**
-- A few different **graphs**
-- A list of **all transaction** within the filtered range to help deep dive.
+A Dash-based personal finance dashboard that aggregates bank transactions, credit card statements, and stock trading data into interactive visualizations.
+
+## 🚀 Quick Start
+
+```bash
+pip install -r requirements.txt
+```
+
+### First-time setup
+1. Clone the repo and run `python overview_free.py` once — it will **auto-create** all missing folders and template CSV files
+2. Follow the setup steps below to populate your data
+3. Run `python degiro_IB.py` to fetch stock/trading data (requires internet)
+4. Run `python overview_free.py` to launch the dashboard at http://127.0.0.1:8050
+
+### Updating data
+1. Drop new bank/card CSVs into the corresponding `InputFiles/` folders
+2. Run `degiro_IB.py` if you have new trading data
+3. Run `overview_free.py` to refresh the dashboard
+
+## 📊 Dashboard Overview
+
+The dashboard has **six sections**:
+- **Filters** — Category, aggregation method, stock view, date range
+- **KPIs** — Income saved YTD (with saving rate), restaurant spend YTD/monthly, dividends YTD, XIRR
+- **Cumulative graph** — Monthly savings, bank balance, cumulative wealth
+- **Investment graph** — Portfolio value vs benchmark (VT ETF), dividends, XIRR, deep finder
+- **Spending breakdown** — Waterfall chart (with transaction counts), treemap, stacked area, category rolling averages
+- **Year-over-Year comparison** — Compare any category's monthly spend across years
+- **Transaction table** — Filterable list of all transactions
+
 ![Dashboard overview](assets/dashboard_top.png)
 
-### KPI section
-I have chosen to display four KPIs important to me:
-![KPI section](assets/KPI_section.png)
-- Income saved YTD vs last year (this is purely how much has been put aside and does not consider unrealised gains/lose)
-- Restaurant YTD vs last year (As we go often to the restaurant I find it important to monitor it)
-- Restaurant current month vs last month
-- Dividends YTD and equity YTD
+## 🔧 How to Set It Up
 
-### First graph "Monthly spent (excluding investment)"
- It shows on the left axis how much money has been saved per month, as well as how much is remaining on the bank account (Konto Stand). On the right axis you see two cummulative curves of wealth: 1) Cummulative which reprensent wealth invested (bank account + deposited on trading platform), 2) "incl. 2a" is for swiss usage and to reprensent how much is on top in the pillar 2a retirement fund.
+### Step 1: Add your bank data
 
-### Second graph Degiro Interactive brokers
-Only the third dropdown is a bit more complex (called **Stock details**), it allows you to visualise different aspects of your investments.
-The default "High Level". You can see four curves displayed on two y axis On the right axis you can see accumulated dividends overtime. On the left axis you can see the following:
-    - How much you invested "invested"
-    - A benchark of the s&p 500, I chose VT ETF
-    - Actual performance "Degiro IB CHF"
+Drop CSV files into the corresponding folders under `InputFiles/`:
 
-![High Level stock](assets/stock_HighLevel.png)
+| Bank/Source | Folder | Format |
+|---|---|---|
+| Neon | `InputFiles/neon/` | Yearly CSVs from the app (semicolon-separated) |
+| Swisscard | `InputFiles/swisscard/` | Download from web portal (comma-separated) |
+| ZKB | `InputFiles/ZKB/` | Export from e-banking (semicolon-separated) |
+| Postfinance | `InputFiles/Postfinance/` | CSV or XML from e-banking |
+| Degiro | `InputFiles/Degiro/` | Yearly transaction CSVs |
+| Interactive Brokers | `InputFiles/IB/` | Activity Statements > Year to date > CSV |
+| Degiro deposits | `InputFiles/Degiro_deposit/` | Account statement CSV |
 
-The "Details Dividends" and "Details Stocks". It shows the cummulated dividends of the stocks (or stock value). To make it visible only dividends which represent 2% of the total would be displayed
-<p float="left">
-  <img src="assets/dividends_details.png" width="48%" />
-  <img src="assets/stock_details.png" width="48%" />
-</p>
+### Step 2: Initialize your starting balances
 
-The "Deep finder YTD" and "Deep finder inception". It shows the growth (YTD or since inception) of your top 20 stocks, which could help identify buy opportunities.
-<p float="left">
-  <img src="assets/deep_finder_YTD.png" width="48%" />
-  <img src="assets/deep_finder_inception.png" width="48%" />
-</p>
+Edit the files in `InputFiles/Initialisation/` (templates are auto-created):
 
-### Waterfall and tree map graphs
-![Tree map wateral](assets/treemap_waterfall.png)
-1) Waterfall to see how you spend your money
-2) A tree map to visualise the larger categorise and deep dive in the sub categorise
+**bank_init.csv** — Your starting point:
+```
+Date,Amount,...,Description,...,category
+01/10/2021,,,,,Start Date Dashboard,,,,,,
+30/09/2021,5000,,,,salary,,salary,,no,no,salary
+30/09/2021,-2000,,,,Degiro,,investment,,no,no,investment
+```
+- Set the `Start Date Dashboard` row to when you want tracking to begin
+- Add your initial bank balance as "salary"
+- Add initial investment platform balances as negative "investment" amounts
 
-### Last section of the dashboard
-Below we see the lsat 3 graphs of the dashboard: 
-1) A monthly spent (excluding investment) of the dashboard, stacked values. As well as 3 ,6, 12 months rolling average
-2) How is the spend per category is evolving overtime (i.e. holidays 3, 6, 12, 24 months rolling)
-3) A list of individual transactions (can be filtered using categorise or date time filters)
+**pillar2a.csv** — Monthly employer pension contribution:
+```
+Date,Amount,...,Description,...,category
+01/01/2022,200,,,,pillar2a,,taxes,,,,pillar2a
+```
+- Each row defines the monthly pillar 2a amount starting from that date
+- Add a new row when the amount changes (e.g. salary raise)
 
-![Bottom graphs](assets/bottom_dashboard.png)
+**taxes_init.csv** — Tax smoothing (optional):
+```
+Date,Amount,...,Description,...,category
+30/09/2021,-4500,,,,taxes_delete,,taxes,,,,taxes
+01/10/2021,-375,,,,tax_add_manual,,taxes,,no,no,taxes
+```
+- Use `taxes_delete` to remove lump-sum tax payments
+- Use `tax_add_manual` to add smoothed monthly amounts instead
 
-## 📌 Motivation Behind the Project
+### Step 3: Set up categorization flags
 
-## How to set it up.
-The first initial setup is a bit longer as one needs to download the files, potentially apply some initialization or clustering.
+Edit CSV files in `InputFiles/Flags/` (empty files are auto-created). Each file contains one keyword per line (no header). A transaction is categorized if its description contains any keyword from the flag file.
 
-1) Download all the files (Bank transacations and Stocks transactions in the corresponding folder)
-In my case **neon** is available as yearly csv in the mobile phone. All yearly csv can be dropped in the correspoding folder
-**Swisscard** allows from the web to dwonload all transactions as csv. I normally download one year of transaction
-**Degiro, interactive brokers**: data can be downloaded as follow: Performance & Reports > Statements > Activity Statements > Year to date, csv
+| Flag file | Category | Example keywords |
+|---|---|---|
+| `flag_salary.csv` | salary | `salary`, `payroll` |
+| `flag_restaurant.csv` | restaurant | `Pizzeria`, `Uber Eats`, `TWINT` |
+| `flag_food.csv` | food | `Migros`, `Coop`, `Denner` |
+| `flag_house.csv` | housing | `Sunrise`, `rent`, `electricity` |
+| `flag_taxes.csv` | taxes | `Kanton Zurich`, `Steueramt` |
+| `flag_transportation.csv` | transportation | `SBB`, `Lime` |
+| `flag_insurance.csv` | insurance | `Sanitas`, `CSS` |
+| `flag_holidays.csv` | holidays | `SNCF`, `Airbnb`, `hotel` |
+| `flag_entertainment.csv` | entertainment | `Spotify`, `Netflix`, `cinema` |
+| `flag_sport.csv` | sport | `Decathlon`, `ski pass` |
+| `flag_health.csv` | health | `pharmacy`, `Amavita` |
+| `flag_clothes.csv` | clothes | `Zara`, `H&M` |
+| `flag_investments.csv` | investment | `Degiro`, `Interactive Brokers`, `Viac` |
+| `flag_pillar2a.csv` | pillar2a | `pension fund` |
+| `flag_other.csv` | others | `Apple`, `Amazon` |
+| `flag_twint.csv` | (sub-filter) | Keywords to identify Twint transfers |
+| `flag_drop_row.csv` | (delete) | Keywords for duplicate transactions to remove |
+| `flag_pirates.csv` | website | Keywords for website-related costs |
 
-2) In InputFiles\Initialisation you need to initiate the dashboard with the following information
-    I have three CSVs "bank_init.csv", "pillar2a.csv", "taxes_init.csv". You can copy the example files for the folder example_data into the folder Initialisation
-    
-    2a) The "bank_init.csv":
+⚠️ **Important**: Flags are checked as substrings, so keep them specific enough to avoid false matches (e.g. `Ooki` would match `Booking.com`).
 
-    It also contains information to initialize investment (pillar 2a, pillar 3a, interactive brokers) as only transaction are looked at
-    I opened a bank account in 2011 and listed the first money transfered from my old bank account to the new as "salary" and initialized the values on the other accounts.
-    You should add as "salary" the full amount you owned at the start date, then add the payment you made to investment platforms (pillar 3a, degiro interactive brokers with a negative value as this was leaving the account)
+### Step 4: Exception rules (optional)
 
-    2b) The "pillar2a.csv"
+**categorization_exceptions.csv** in `InputFiles/Exception_csv/` — Override categorization for specific transactions:
+```
+description_substring,amount_min,amount_max,year_condition,year_min,year_max,month_condition,month_min,month_max,date_min,date_max,new_description,new_category,new_month,new_year,subject,category, Memo
+SBB,,-700,,,,,,,,,,,,,,,Half tax annual pass
+```
+- Rules are matched top-to-bottom, first match wins
+- Put specific rules before generic ones
+- Use `&` for AND conditions on year/month ranges, `|` for OR
 
-    For every salary you receive starting at the date Date you will have a new income going to pillar 2a based on the mentioned value. If you have a salary raise or how much you put in pillar 2a is changing you can add a new row with the start date and associated value.
+**manual_correction.csv** in `InputFiles/Exception_csv/` — Delete and re-add transactions to fix dates or categories:
+```
+Task,year,month,day,Amount,Description,category,fix_variable
+delete_row,2025,3,31,253,airbnb,holidays,variable
+add_row,2025,2,1,253,airbnb,holidays,variable
+```
+- `delete_row` removes matching transactions (day/amount/description are optional filters)
+- `add_row` inserts a new transaction
+- Useful for moving refunds to match the original charge date
 
-    2c) The "taxes_init.csv":
+**personal_config.csv** in `InputFiles/Initialisation/` — Personal settings (auto-created with placeholders):
+```
+key,value
+phone_number,YOUR_PHONE_NUMBER
+```
+- `phone_number` — Your Swiss mobile number (used to parse Postfinance Twint descriptions)
 
-    In the description you can add "tax_add_manual" or "taxes_delete". I created this file if you want to smooth your taxes and remove the full amount paid once a year and add the monthly values
+**manual_stock_additions.csv** in `InputFiles/IB/` — Manually add stock positions not captured by IB/Degiro exports:
+```
+Date,Symbol,Quantity,Asset Category,Currency
+2024-01-15,AAPL,10,Stocks,USD
+```
+- Useful for corporate actions, stock splits, or positions transferred from other brokers
 
-3) In the Exception_csv\categorization_exceptions.csv
-The goal of this file is to identify and modify some transaction for a better categorisation (i.e. if you paid in advance for a holiday house 3 months before but your friends will pay you pack after the holiday you can "move" the initial payment to when you are paid pack to reflect the netto). You can copy the csv "categorization_exceptions.csv" from the example_data into the Exception_csv folder
+## 📁 Repository Structure
 
+```
+├── overview_free.py          # Main dashboard (run this)
+├── degiro_IB.py              # Stock data fetcher (run before dashboard)
+├── main_pandas_exceptions.py # Data processing pipeline
+├── theme.py                  # Theme configuration
+├── requirements.txt          # Python dependencies
+├── assets/
+│   └── bootstrap.css         # Custom CSS overrides
+├── datasets/                 # Generated CSVs (auto-created)
+│   ├── spent_all.csv         # All transactions
+│   ├── spent_category.csv    # Monthly category totals
+│   ├── IB_degiro.csv         # Stock portfolio data
+│   ├── snp500.csv            # Benchmark data
+│   └── IB_degiro_cash.csv    # Cash balance
+├── InputFiles/
+│   ├── neon/                 # Neon bank CSVs
+│   ├── swisscard/            # Swisscard CSVs
+│   ├── ZKB/                  # ZKB bank CSVs
+│   ├── Postfinance/          # Postfinance CSVs/XMLs
+│   ├── Degiro/               # Degiro transaction CSVs
+│   ├── Degiro_deposit/       # Degiro deposit CSVs
+│   ├── IB/                   # Interactive Brokers CSVs
+│   ├── Flags/                # Categorization keyword files
+│   ├── Initialisation/       # Starting balances, pillar 2a & personal config
+│   ├── Exception_csv/        # Categorization overrides & manual corrections
+│   └── example_data/         # Example templates
+└── BackupScript/             # Legacy/backup scripts
+```
 
-## Technology
+## 🛠 Technology
 
+- **Python 3.11+**
+- **Dash** + **Plotly** — Interactive web dashboard
+- **Pandas** — Data processing
+- **yfinance** — Stock market data
+- **rapidfuzz** — Fuzzy description matching
+- **scipy** — XIRR calculation
 
-## Structure of the repository
-InputFiles/ ├── Degiro/ │ └── Degiro_deposit.csv ├── example_data/ │ └── .gitkeep ├── exception/ │ └── .gitkeep ├── Exception_csv ├── Initialisation ├── neon ├── Postfinance ├── swisscard ├── ZKB
+## 📌 Key Features
+
+- **Multi-bank support** — Neon, Swisscard, ZKB, Postfinance
+- **Stock portfolio tracking** — Degiro + Interactive Brokers with FX conversion
+- **XIRR calculation** — True annualized investment return including FX impact
+- **Automatic categorization** — Flag-based keyword matching with exception overrides
+- **Year-over-Year comparison** — Compare spending patterns across years
+- **Saving rate KPI** — Track what percentage of income you're saving
+- **Color-coded KPIs** — Green/red indicators vs last year/month
+- **Auto gap-day detection** — Automatically excludes bank holidays from stock data
+- **Manual corrections** — CSV-based system to fix transaction dates and categories
+- **Auto-setup** — Creates all required folders and template files on first run

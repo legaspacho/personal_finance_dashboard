@@ -467,11 +467,12 @@ def read_IB(file_names):
     df_all = df_all[["Date","Symbol","Quantity", "Asset Category","Currency"]].copy()
     df_all['Quantity'] = pd.to_numeric(df_all['Quantity'], errors='coerce')
 
-    new_row = [
-            {'Date':'2024-09-11', 'Symbol': "SIRI", 'Quantity':67, 'Asset Category' :"Stocks", "Currency":"USD"}, 
-            {'Date':'2021-11-01', 'Symbol': "IBKR", 'Quantity':13.8818, 'Asset Category' :"Stocks", "Currency":"USD"}, 
-                ]
-    df_all = pd.concat([df_all, pd.DataFrame(new_row)], axis=0, ignore_index=True)
+    # Load manual stock additions from CSV (not tracked in git)
+    manual_stocks_path = f'{cwd}\\InputFiles\\IB\\manual_stock_additions.csv'
+    if os.path.exists(manual_stocks_path):
+        df_manual = pd.read_csv(manual_stocks_path)
+        df_all = pd.concat([df_all, df_manual], axis=0, ignore_index=True)
+
     df_all['Date'] = pd.to_datetime(df_all['Date'], format='%Y-%m-%d')
     return df_all
 
@@ -574,6 +575,26 @@ def prepare_trading_inputs(cwd, plot_graph, manual_date_correction):
     stock_data = get_daily_OpenClose(symbols, start_date, exception_lst, df_symbol_currency)
     
     df_final = final_df(stock_data, df_all)
+
+    # Auto-detect and exclude gap days (bank holidays where stock data drops to 0)
+    df_daily_sum = df_final.groupby("Date", as_index=False)[["total_chf", "Dividends_tot"]].sum()
+    df_daily_sum = df_daily_sum.sort_values("Date").reset_index(drop=True)
+    # A day is a gap if total_chf OR Dividends_tot drops to 0 between non-zero days
+    gap_dates = []
+    for col in ["total_chf", "Dividends_tot"]:
+        is_zero = df_daily_sum[col] == 0
+        nonzero_idx = is_zero[~is_zero].index
+        if nonzero_idx.empty:
+            continue
+        first_nonzero = nonzero_idx.min()
+        last_nonzero = nonzero_idx.max()
+        gap_mask = is_zero & (df_daily_sum.index > first_nonzero) & (df_daily_sum.index < last_nonzero)
+        gap_dates.extend(df_daily_sum.loc[gap_mask, "Date"].tolist())
+    gap_dates = list(set(gap_dates))
+    if gap_dates:
+        print(f"Auto-excluded {len(gap_dates)} gap days: {sorted([str(d.date()) for d in gap_dates])}")
+        df_final = df_final[~df_final["Date"].isin(gap_dates)].copy()
+
     us_holidays = holidays.US(years=df_final['Date'].dt.year.unique())
     us_holidays = pd.to_datetime(list(us_holidays.keys()))
     manual_date_correction = pd.to_datetime(manual_date_correction)

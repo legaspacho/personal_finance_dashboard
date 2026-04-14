@@ -4,42 +4,71 @@ Created on Mon Mar 22 17:28:20 2021
 
 @author: LHERMITTE_G
 """
-
-# -*- coding: utf-8 -*-
-"""
-Created on Thu Mar 18 18:57:39 2021
-
-@author: LHERMITTE_G
-"""
 import pandas as pd
 import plotly.express as px
-#from app import app
-from theme import theme
 import plotly.graph_objects as go
-from datetime import datetime, date
+from datetime import datetime
 import dash_bootstrap_components as dbc
 from dash import Input, Output, html, dcc, dash
 from main_pandas_exceptions import main
-from dash_table import DataTable
+from dash.dash_table import DataTable
 from scipy.optimize import root
 import numpy as np
 import math
 import os
-
-#pd.options.mode.chained_assignment = 'raise'
-#pd.set_option('mode.chained_assignment', 'raise')
-
+from pathlib import Path
 
 cwd = os.getcwd()
-path = f"{cwd}\\datasets"
-print(f'hello {path}')
+path = Path(cwd) / "datasets"
 main(cwd)
 
+# Load CSVs once at startup
+_df_category_raw = pd.read_csv(path / "spent_category.csv")
+_df_category_raw.loc[:, "day"] = 1
+_df_category_raw["Date"] = pd.to_datetime(_df_category_raw[["year", "month", "day"]])
+
+_df_all_raw = pd.read_csv(path / "spent_all.csv")
+_df_all_raw["Date"] = pd.to_datetime(_df_all_raw[["year", "month", "day"]])
+
 # create_dashboard()
-app = dash.Dash(__name__, prevent_initial_callbacks=False, external_stylesheets=[dbc.themes.BOOTSTRAP]) # this was introduced in Dash version 1.12.0
+app = dash.Dash(__name__, prevent_initial_callbacks=False, external_stylesheets=[dbc.themes.BOOTSTRAP])
 server = app.server
 
+def apply_dark_theme(fig, **kwargs):
+    default_legend = dict(
+        x=0.05, y=1, xanchor="left", yanchor="top",
+        bgcolor='rgba(255, 255, 255, 0.2)',
+        bordercolor='white', borderwidth=1,
+        font=dict(color='white')
+    )
+    if 'legend' in kwargs:
+        default_legend.update(kwargs.pop('legend'))
+    fig.update_layout(
+        paper_bgcolor='#333333',
+        plot_bgcolor='#333333',
+        font=dict(color='white', family="Arial, sans-serif", size=12),
+        hoverlabel=dict(font_size=14, font_color='white'),
+        title_font_size=14,
+        legend=default_legend,
+        **kwargs
+    )
+    return fig
+
+def kpi_color(current, comparison, higher_is_better=True):
+    """Return green if improving, red if worsening, white if equal."""
+    if higher_is_better:
+        return '#00CC66' if current > comparison else '#FF4444' if current < comparison else 'white'
+    return '#00CC66' if current < comparison else '#FF4444' if current > comparison else 'white'
+
 list_columns=["year","month","category","fix_variable","Description","Amount"]
+list_columns_type = [
+    {"id": "year", "name": "year", "type": "numeric"},
+    {"id": "month", "name": "month", "type": "numeric"},
+    {"id": "category", "name": "category", "type": "text"},
+    {"id": "fix_variable", "name": "fix_variable", "type": "text"},
+    {"id": "Description", "name": "Description", "type": "text"},
+    {"id": "Amount", "name": "Amount", "type": "numeric"},
+]
 categories_include = ["all","taxes","investment","holidays","housing","restaurant","insurance","transportation","sport","others","food","entertainment","clothes","health"]
 
 def generate_months():
@@ -50,7 +79,7 @@ def generate_months():
     # Define the range of months from October 2021 to December 2024
     start_year = 2021
     start_month = 9
-    end_year = 2026
+    end_year = current_date.year + 1
     end_month = 12
 
     months = {}
@@ -93,6 +122,8 @@ app.layout = html.Div(
                                         options=[{"label": i, "value": i} for i in categories_include],
                                         inline=True,
                                         className="text-white",
+                                        inputStyle={"marginRight": "4px"},
+                                        labelStyle={"color": "white", "marginRight": "8px"},
                                     ),
                                 ]
                             ),
@@ -109,7 +140,7 @@ app.layout = html.Div(
                                     dcc.RadioItems(
                                         id="spent_aggregation",
                                         value="all",
-                                        labelStyle={'display': 'block'},
+                                        labelStyle={'display': 'block', 'color': 'white'},
                                         options=[
                                             {"label": "All time", "value": "all"},
                                             {"label": "Yearly avg", "value": "yearly"},
@@ -132,7 +163,7 @@ app.layout = html.Div(
                                     dcc.RadioItems(
                                         id="stock_details",
                                         value="highlevel",
-                                        labelStyle={'display': 'block'},
+                                        labelStyle={'display': 'block', 'color': 'white'},
                                         options=[
                                             {"label": "High level", "value": "highlevel"},
                                             {"label": "Details Dividends", "value": "details_dividends"},
@@ -157,7 +188,7 @@ app.layout = html.Div(
                                     dcc.RadioItems(
                                         id="aggregate_category",
                                         value="yes",
-                                        labelStyle={'display': 'block'},
+                                        labelStyle={'display': 'block', 'color': 'white'},
                                         options=[
                                             {"label": "yes", "value": "yes"},
                                             {"label": "no", "value": "no"},
@@ -185,6 +216,7 @@ app.layout = html.Div(
                                             i: {
                                                 'label': month,
                                                 'style': {
+                                                    'color': 'white',
                                                     'transform': 'rotate(45deg)',
                                                     'whiteSpace': 'nowrap',
                                                     'marginLeft': '0px',
@@ -215,7 +247,7 @@ app.layout = html.Div(
                         dbc.Card(
                             dbc.CardBody(
                                 [
-                                    html.Label("Income saved YTD", className="text-white"),
+                                    html.Label("Income saved YTD (saving rate)", className="text-white"),
                                     html.Div(id='saved_ytd_value', className='card-text text-white'),  # Placeholder for value
                                     html.Div(id='saved_ytd_sub', className='card-subtext text-white'),  # Placeholder for sub
                                 ]
@@ -255,8 +287,9 @@ app.layout = html.Div(
                             dbc.CardBody(
                                 [
                                     html.Label("Dividends YtD (equity YtD)", className="text-white"),
-                                    html.Div(id='dividends_YtD_value', className='card-text text-white'),  # Placeholder for value
-                                    html.Div(id='dividends_YtD_sub', className='card-subtext text-white'),  # Placeholder for sub
+                                    html.Div(id='dividends_YtD_value', className='card-text text-white'),
+                                    html.Div(id='dividends_YtD_sub', className='card-subtext text-white'),
+                                    html.Div(id='xirr_value', className='card-subtext text-white'),
                                 ]
                             ),
                             style={'backgroundColor': '#333333'},
@@ -348,6 +381,32 @@ app.layout = html.Div(
                 className="mb-4",
             ),
 
+            # Year-over-year comparison
+            dbc.Row(
+                [
+                    dbc.Col(
+                        dbc.Card(
+                            [
+                                dbc.CardHeader([
+                                    "Year-over-Year comparison: ",
+                                    dcc.Dropdown(
+                                        id="yoy_category",
+                                        options=[{"label": c, "value": c} for c in categories_include if c != "all"],
+                                        value="restaurant",
+                                        clearable=False,
+                                        style={'width': '200px', 'display': 'inline-block', 'backgroundColor': '#444444', 'color': 'black'},
+                                    ),
+                                ], className="card-title text-white", style={'display': 'flex', 'alignItems': 'center', 'gap': '10px'}),
+                                dcc.Graph(id="yoy_graph"),
+                            ],
+                            style={'backgroundColor': '#333333'},
+                        ),
+                        width=12,
+                    ),
+                ],
+                className="mb-4",
+            ),
+
             # Individual transactions table
             dbc.Row(
                 [
@@ -358,7 +417,7 @@ app.layout = html.Div(
                                     html.H5("Individual transactions", className="card-title text-white"),
                                     DataTable(
                                         id='new_built_table',
-                                        columns=[{'id': p, 'name': p} for p in list_columns],
+                                        columns=list_columns_type,
                                         data=[],  # Dynamically loading data here
                                         editable=False,
                                         filter_action='native',  # Enable column search functionality
@@ -383,11 +442,11 @@ app.layout = html.Div(
                                             'backgroundColor': '#333333',  # Same dark background
                                             'color': 'white',  # White text for data
                                         },
-                                        style_filter={  # Styling the filter/search boxes
-                                            'backgroundColor': '#444444',  # Dark gray background for filter boxes
-                                            'color': 'white',  # White text color in filter boxes
-                                            'border': '1px solid #555555',  # Border styling for the filter boxes
-                                            'fontWeight': 'bold',  # Optional: make text bold for better readability
+                                        style_filter={
+                                            'backgroundColor': '#444444',
+                                            'color': 'white',
+                                            'border': '1px solid #555555',
+                                            'fontWeight': 'bold',
                                         },
                                         style_data_conditional=[  # Optional conditional formatting for hovering rows
                                             {
@@ -424,46 +483,41 @@ app.layout = html.Div(
 )
 def update_kpis(children):
 
-    finance_path = "{path}//spent_category.csv".format(path=path)
-    finance_all_path ="{path}//spent_all.csv".format(path=path)
-
-    # ---------------------------------------Read files-------------------------------------------
-    df_finance_raw = pd.read_csv(finance_path)
-    df_finance_raw_all = pd.read_csv(finance_all_path)
-
-    df_finance_raw.loc[:, "day"] = 1
-    df_finance_raw["Date"] = pd.to_datetime(df_finance_raw[["year", "month", "day"]])
-    #df_finance_raw_all.loc[:, "day"] = 1
-    df_finance_raw_all["Date"] = pd.to_datetime(df_finance_raw_all[["year", "month", "day"]])
+    df_finance_raw = _df_category_raw.copy()
+    df_finance_raw_all = _df_all_raw.copy()
 
     #KPIS figures
-    df_KPI_saved = df_finance_raw_all[(df_finance_raw_all["category"] != "investment") & (df_finance_raw_all["category"] != "pillar2a") & (df_finance_raw_all["year"] == datetime.today().year)].copy()
-    KPI_saved_value = int(df_KPI_saved["Amount"].sum().round())
-    KPI_saved_value = (f"{KPI_saved_value:,}") + " CHF"
-    df_KPI_saved = df_finance_raw_all[(df_finance_raw_all["category"] != "investment") & (df_finance_raw_all["category"] != "pillar2a") & (df_finance_raw_all["year"] == datetime.today().year -1)].copy()
-    df_KPI_saved_Y1 = int(df_KPI_saved["Amount"].sum().round())
-    df_KPI_saved_Y1 = (f"{df_KPI_saved_Y1:,}") + " CHF"
-    df_KPI_saved_Y1 = "vs {df_KPI_saved_Y1} last year".format(df_KPI_saved_Y1=df_KPI_saved_Y1)
+    df_ytd = df_finance_raw_all[(df_finance_raw_all["category"] != "investment") & (df_finance_raw_all["category"] != "pillar2a") & (df_finance_raw_all["year"] == datetime.today().year)].copy()
+    saved_ytd_raw = int(df_ytd["Amount"].sum().round())
+    KPI_saved_value = f"{saved_ytd_raw:,} CHF"
 
-    #KPI resturant
-    df_KPI_saved = df_finance_raw_all[(df_finance_raw_all["category"] == "restaurant") & (df_finance_raw_all["year"] == datetime.today().year)].copy()
-    KPI_restaurant_value = int(df_KPI_saved["Amount"].sum().round())
-    KPI_restaurant_value = (f"{KPI_restaurant_value:,}") + " CHF"
-    df_KPI_saved = df_finance_raw_all[(df_finance_raw_all["category"] == "restaurant") & (df_finance_raw_all["year"] == datetime.today().year -1)].copy()
-    KPI_restaurant_value_Y1 = int(df_KPI_saved["Amount"].sum().round())
-    KPI_restaurant_value_Y1 = (f"{KPI_restaurant_value_Y1:,}") + " CHF"
-    KPI_restaurant_value_Y1 = "vs {KPI_restaurant_value_Y1} last year".format(KPI_restaurant_value_Y1=KPI_restaurant_value_Y1)
+    # Savings rate: saved / income
+    income_ytd = df_finance_raw_all[(df_finance_raw_all["category"] == "salary") & (df_finance_raw_all["year"] == datetime.today().year)]["Amount"].sum()
+    savings_rate = f" ({saved_ytd_raw / income_ytd * 100:.0f}% saved)" if income_ytd > 0 else ""
+    KPI_saved_value = KPI_saved_value + savings_rate
 
-    #KPIs resturant Monthly
-    df_KPI_saved = df_finance_raw_all[(df_finance_raw_all["category"] == "restaurant") & (df_finance_raw_all["year"] == datetime.today().year) \
-        & (df_finance_raw_all["month"] == datetime.today().month)].copy()
-    KPI_restaurant_M_value = int(df_KPI_saved["Amount"].sum().round())
-    KPI_restaurant_M_value = (f"{KPI_restaurant_M_value:,}") + " CHF/m"
-    df_KPI_saved = df_finance_raw_all[(df_finance_raw_all["category"] == "restaurant") & (df_finance_raw_all["year"] == datetime.today().year) \
-        & (df_finance_raw_all["month"] == datetime.today().month - 1)].copy()
-    KPI_restaurant_value_M1 = int(df_KPI_saved["Amount"].sum().round())
-    KPI_restaurant_value_M1 = (f"{KPI_restaurant_value_M1:,}") + " CHF"
-    KPI_restaurant_value_M1 = "vs {KPI_restaurant_value_M1} last month".format(KPI_restaurant_value_M1=KPI_restaurant_value_M1)
+    df_ytd_y1 = df_finance_raw_all[(df_finance_raw_all["category"] != "investment") & (df_finance_raw_all["category"] != "pillar2a") & (df_finance_raw_all["year"] == datetime.today().year -1)].copy()
+    saved_y1_raw = int(df_ytd_y1["Amount"].sum().round())
+    color_saved = kpi_color(saved_ytd_raw, saved_y1_raw, higher_is_better=True)
+    df_KPI_saved_Y1 = html.Span(f"vs {saved_y1_raw:,} CHF last year", style={'color': color_saved})
+
+    #KPI restaurant
+    rest_ytd_raw = int(df_finance_raw_all[(df_finance_raw_all["category"] == "restaurant") & (df_finance_raw_all["year"] == datetime.today().year)]["Amount"].sum().round())
+    KPI_restaurant_value = f"{rest_ytd_raw:,} CHF"
+    rest_y1_raw = int(df_finance_raw_all[(df_finance_raw_all["category"] == "restaurant") & (df_finance_raw_all["year"] == datetime.today().year -1)]["Amount"].sum().round())
+    color_rest = kpi_color(rest_ytd_raw, rest_y1_raw, higher_is_better=False)
+    KPI_restaurant_value_Y1 = html.Span(f"vs {rest_y1_raw:,} CHF last year", style={'color': color_rest})
+
+    #KPIs restaurant Monthly
+    rest_m_raw = int(df_finance_raw_all[(df_finance_raw_all["category"] == "restaurant") & (df_finance_raw_all["year"] == datetime.today().year) \
+        & (df_finance_raw_all["month"] == datetime.today().month)]["Amount"].sum().round())
+    KPI_restaurant_M_value = f"{rest_m_raw:,} CHF/m"
+    prev_month = datetime.today().month - 1 if datetime.today().month > 1 else 12
+    prev_month_year = datetime.today().year if datetime.today().month > 1 else datetime.today().year - 1
+    rest_m1_raw = int(df_finance_raw_all[(df_finance_raw_all["category"] == "restaurant") & (df_finance_raw_all["year"] == prev_month_year) \
+        & (df_finance_raw_all["month"] == prev_month)]["Amount"].sum().round())
+    color_rest_m = kpi_color(rest_m_raw, rest_m1_raw, higher_is_better=False)
+    KPI_restaurant_value_M1 = html.Span(f"vs {rest_m1_raw:,} CHF last month", style={'color': color_rest_m})
 
     return KPI_saved_value, df_KPI_saved_Y1, KPI_restaurant_value, KPI_restaurant_value_Y1, KPI_restaurant_M_value, KPI_restaurant_value_M1
 
@@ -474,13 +528,7 @@ def update_kpis(children):
 )
 def all_graphs( children):
 
-    finance_path = "{path}//spent_category.csv".format(path=path)
-
-    # ---------------------------------------Read files-------------------------------------------
-    df_finance_raw = pd.read_csv(finance_path)
-
-    df_finance_raw.loc[:, "day"] = 1
-    df_finance_raw["Date"] = pd.to_datetime(df_finance_raw[["year", "month", "day"]])
+    df_finance_raw = _df_category_raw.copy()
 
     df_category_sum = df_finance_raw
     df_category_sum = df_category_sum[~((df_category_sum["category"] == "taxes")
@@ -539,48 +587,11 @@ def all_graphs( children):
     # Change the bar mode
 
     fig_category.update_layout(barmode='group')
-
-    fig_category.update_layout(
-        title=dict(
-            font=dict(color='white', size=16)  # White title font
-        ),
-        xaxis=dict(
-            title=dict(
-                text='Category',  # X-axis title
-                font=dict(color='white')  # White x-axis title font
-            ),
-            showgrid=True, 
-            gridcolor='lightgray', 
-            zeroline=False
-        ),
-        yaxis=dict(
-            title=dict(
-                text='Rolling Average €/month',  # Y-axis title
-                font=dict(color='white')  # White y-axis title font
-            ),
-            showgrid=True, 
-            gridcolor='lightgray', 
-            zeroline=False
-        ),
-        legend=dict(
-            orientation="h",
-            yanchor="bottom",
-            y=1.02,
-            xanchor="right",
-            x=1,
-            font=dict(color='white'),  # White font for legend text
-            bgcolor='rgba(255, 255, 255, 0.1)',  # Slightly transparent white background for legend
-            bordercolor='white',
-            borderwidth=1
-        ),
-        plot_bgcolor='#333333',  # Set plot background color to dark gray
-        paper_bgcolor='#333333',  # Set paper background color to dark gray
-        hovermode='x',  # Show hover information only for the x-axis
-        font=dict(
-            family="Arial, sans-serif",
-            size=12,
-            color="white"  # White font for general text
-        )
+    apply_dark_theme(fig_category,
+        hovermode='x',
+        xaxis=dict(title='Category', showgrid=True, gridcolor='lightgray', zeroline=False),
+        yaxis=dict(title='Rolling Average CHF/month', showgrid=True, gridcolor='lightgray', zeroline=False),
+        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
     )
 
     return fig_category
@@ -599,23 +610,14 @@ def all_graphs( children):
         Input(component_id="month_slider", component_property="value"),
     ]
 )
-def all_graphs( spent_aggregation, catgory_include, slider_date):
+def main_graphs( spent_aggregation, catgory_include, slider_date):
 
-    finance_path = "{path}//spent_category.csv".format(path=path)
-    finance_all_path ="{path}//spent_all.csv".format(path=path)
+    start_date_str = months[slider_date[0]] + '-01'
+    end_date_str = months[slider_date[1]] + '-01'
 
-    start_date_str = months[slider_date[0]] + '-01'  # First date
-    end_date_str = months[slider_date[1]] + '-01'  # Last date
-    # ---------------------------------------Read files-------------------------------------------
-    df_finance_raw = pd.read_csv(finance_path)
-    df_finance_raw_all = pd.read_csv(finance_all_path)
+    df_finance_raw = _df_category_raw.copy()
+    df_finance_raw_all = _df_all_raw.copy()
 
-    df_finance_raw.loc[:, "day"] = 1
-    df_finance_raw["Date"] = pd.to_datetime(df_finance_raw[["year", "month", "day"]])
-    #df_finance_raw_all.loc[:, "day"] = 1
-    df_finance_raw_all["Date"] = pd.to_datetime(df_finance_raw_all[["year", "month", "day"]])
-
-    #Filtering date
     df_finance = df_finance_raw[(df_finance_raw["Date"] >= start_date_str) & (df_finance_raw["Date"] <= end_date_str)].copy()
     df_finance_all = df_finance_raw_all[(df_finance_raw_all["Date"] >= start_date_str) & (df_finance_raw_all["Date"] <= end_date_str)].copy()
 
@@ -638,43 +640,26 @@ def all_graphs( spent_aggregation, catgory_include, slider_date):
 
     df_waterfall = df_finance_max.sort_values(by='Amount', key=abs, ascending=False)
     df_waterfall = df_waterfall[df_waterfall["category"] != "pillar2a"]
+    df_waterfall = df_waterfall.groupby("category", as_index=False)[["Amount"]].sum()
+    df_waterfall = df_waterfall.sort_values(by='Amount', key=abs, ascending=False)
+
+    # #4 Transaction count per category on waterfall x-axis labels
+    df_txn_count = df_finance_all.groupby("category", as_index=False).size().rename(columns={"size": "count"})
+    count_map = dict(zip(df_txn_count["category"], df_txn_count["count"]))
+    df_waterfall["label"] = df_waterfall["category"].apply(lambda c: f"{c} ({count_map.get(c, 0)})")
 
     waterfall_finance = go.Figure(go.Waterfall(
         name="20",
         orientation="v",
-        x=df_waterfall["category"],
+        x=df_waterfall["label"],
         textposition="outside",
         y=df_waterfall["Amount"],
-        connector={"line": {"color": "rgb(200, 200, 200)"}},  # Light grey for the connector line
-
+        connector={"visible": False},
     ))
 
-    # Update the layout with dark background and white text
-    waterfall_finance.update_layout(
-        paper_bgcolor='#333333',  # Overall background
-        plot_bgcolor='#333333',   # Plot area background
-
-        font=dict(color='white'),  # White font for all text
-
-        hoverlabel=dict(font_size=14, font_color='white'),  # Hover label settings
-
-        title_font_size=14,
-
-        yaxis=dict(
-            title="Amount",
-            titlefont=dict(color="white"),  # White axis title
-            tickfont=dict(color="white")    # White tick labels
-        ),
-
-        xaxis=dict(
-            title="Category",
-            titlefont=dict(color="white"),  # White axis title
-            tickfont=dict(color="white")    # White tick labels
-        ),
-
-        legend=dict(
-            font=dict(color='white')  # Legend font color white if you add a legend
-        )
+    apply_dark_theme(waterfall_finance,
+        yaxis=dict(title="Amount"),
+        xaxis=dict(title="Category"),
     )
 
 
@@ -746,48 +731,10 @@ def all_graphs( spent_aggregation, catgory_include, slider_date):
     y2_tickvals = [y2_min + (y2_max - y2_min) / tickmarks * i for i in range(len([0] * tickmarks))]
     y2_tickvals.append(y2_min)
     y2_tickvals.append(y2_max)
-    graph_cum.update_layout(
+    apply_dark_theme(graph_cum,
         hovermode="x unified",
-        font_size=12,
-
-        # Set the background colors for the overall layout and plot area
-        paper_bgcolor='#333333',  # Background of the entire graph
-        plot_bgcolor='#333333',   # Background of the plotting area
-
-        font=dict(color='white'),  # General font color set to white
-
-        hoverlabel=dict(font_size=14, font_color='white'),  # White text in hover labels for better visibility
-
-        title_font_size=14,
-
-        yaxis2=dict(
-            overlaying='y',
-            side='right',
-            range=[y2_min, y2_max],
-            tickvals=y2_tickvals,
-            title="Cumulative worth [CHF]",
-            titlefont=dict(color="white"),  # White axis title
-            tickfont=dict(color="white")    # White tick labels
-        ),
-
-        yaxis=dict(
-            range=[y1_min, y1_max],
-            tickvals=y1_tickvals,
-            title="Monthly [CHF] saved/kontoStand",
-            titlefont=dict(color="white"),  # White axis title
-            tickfont=dict(color="white")    # White tick labels
-        ),
-
-        legend=dict(
-            x=0.05,
-            y=1,
-            xanchor="left",
-            yanchor="top",
-            bgcolor='rgba(255, 255, 255, 0.2)',  # Transparent white background for the legend
-            bordercolor='white',                 # White border for the legend
-            borderwidth=1,
-            font=dict(color='white')             # White text in the legend for readability
-        )
+        yaxis2=dict(overlaying='y', side='right', range=[y2_min, y2_max], tickvals=y2_tickvals, title="Cumulative worth [CHF]"),
+        yaxis=dict(range=[y1_min, y1_max], tickvals=y1_tickvals, title="Monthly [CHF] saved/kontoStand"),
     )
 
 
@@ -802,27 +749,7 @@ def all_graphs( spent_aggregation, catgory_include, slider_date):
         values='Amount'
     )
 
-    # Update the layout with dark background and white text
-    treemap_graph.update_layout(
-        paper_bgcolor='#333333',  # Overall background color
-        plot_bgcolor='#333333',   # Plot area background color
-
-        font=dict(color='white'),  # White font for all text
-        hoverlabel=dict(font_size=14, font_color='white'),  # Hover label settings
-        title_font_size=14,
-
-        margin=dict(l=0, r=0, t=0, b=0),  # Remove margins to utilize full container space
-
-        # Update treemap color scheme for better contrast on dark background
-        coloraxis_colorbar=dict(
-            title="Amount",
-            tickfont=dict(color='white'),  # White tick labels on color bar
-            titlefont=dict(color='white'),  # White title on color bar
-        )
-    )
-
-    # Adjust the color scale for the treemap if necessary (optional)
-    #treemap_graph.update_traces(marker_colorscale='Viridis', textfont_color='white')
+    apply_dark_theme(treemap_graph, margin=dict(l=0, r=0, t=0, b=0))
 
     df_category_sum = df_finance_raw
     df_category_sum = df_category_sum[~((df_category_sum["category"] == "taxes")
@@ -854,18 +781,11 @@ def all_graphs( spent_aggregation, catgory_include, slider_date):
 )
 def area_category_graph(catgory_include, slider_date, aggregate_category):
 
-    finance_path = "{path}//spent_category.csv".format(path=path)
-    finance_all_path ="{path}//spent_all.csv".format(path=path)
+    start_date_str = months[slider_date[0]] + '-01'
+    end_date_str = months[slider_date[1]] + '-01'
 
-    start_date_str = months[slider_date[0]] + '-01'  # First date
-    end_date_str = months[slider_date[1]] + '-01'  # Last date
-    # ---------------------------------------Read files-------------------------------------------
-    df_finance_raw = pd.read_csv(finance_path)
-    df_finance_raw_all = pd.read_csv(finance_all_path)
-
-    df_finance_raw.loc[:, "day"] = 1
-    df_finance_raw["Date"] = pd.to_datetime(df_finance_raw[["year", "month", "day"]])
-    df_finance_raw_all["Date"] = pd.to_datetime(df_finance_raw_all[["year", "month", "day"]])
+    df_finance_raw = _df_category_raw.copy()
+    df_finance_raw_all = _df_all_raw.copy()
 
     #Filtering date
     df_finance = df_finance_raw[(df_finance_raw["Date"] >= start_date_str) & (df_finance_raw["Date"] <= end_date_str)].copy()
@@ -971,51 +891,13 @@ def area_category_graph(catgory_include, slider_date, aggregate_category):
     # Assuming you're adding stacked traces, set the opacity to 1
     graph_line.update_traces(opacity=1)
 
-    # Update the layout with your existing style, and ensure no transparency in the legend background
-    graph_line.update_layout(
-        paper_bgcolor='#333333',  # Set paper background color to dark gray
-        plot_bgcolor='#333333',  # Set plot background color to dark gray
-        font=dict(family="Arial, sans-serif", size=12, color="white"),  # White font for labels and title
-        xaxis=dict(
-            showgrid=True, 
-            gridcolor='lightgray', 
-            zeroline=False, 
-            automargin=True,  # Automatically adjust margins for better display
-            title=dict(
-                font=dict(color='white')  # White font for x-axis title
-            )
-        ),
-        yaxis=dict(
-            showgrid=True, 
-            gridcolor='lightgray', 
-            zeroline=False, 
-            title=dict(
-                text="CHF/months",  # Replace with your y-axis title
-                font=dict(color='white')  # White font for y-axis title
-            )
-        ),
-        legend=dict(
-            font=dict(size=10, color="white"),  # White font for the legend
-            bgcolor='rgba(255, 255, 255, 0.1)',  # Slightly transparent white background for legend
-            bordercolor='white',  # White border for legend
-            borderwidth=1
-        )
-    )
-
-    graph_line.update_layout(
-        hovermode="x unified",  # Unified hover mode for better interaction
-        hoverlabel=dict(font_size=14, font_color='white'),  # White font for hover labels
-        title_font_size=16,
+    apply_dark_theme(graph_line,
+        hovermode="x unified",
+        xaxis=dict(showgrid=True, gridcolor='lightgray', zeroline=False, automargin=True),
+        yaxis=dict(showgrid=True, gridcolor='lightgray', zeroline=False, title="CHF/months"),
         legend_traceorder="reversed",
-        legend=dict(
-            orientation="v", 
-            yanchor="top", 
-            y=1, 
-            xanchor="right", 
-            x=1.3  # Move legend further to the right
-        )
+        legend=dict(orientation="v", yanchor="top", y=1, xanchor="right", x=1.3, font=dict(size=10)),
     )
-
 
     return graph_line
 
@@ -1045,11 +927,31 @@ def compute_growth(df_stock, start_date):
     last = df_filtered.sort_values("Date").iloc[-1]["Close_CHF"]
     return (last - first) / first * 100 if first != 0 else np.nan
 
+def compute_xirr(dates, amounts, guess=0.1):
+    """Compute XIRR given lists of dates and cash flow amounts.
+    Outflows (investments) should be negative, the final portfolio value positive."""
+    dates = pd.to_datetime(dates)
+    d0 = dates.min()
+    years = np.array([(d - d0).days / 365.25 for d in dates])
+    amounts = np.array(amounts, dtype=float)
+
+    def npv(rate):
+        return np.sum(amounts / (1 + rate) ** years)
+
+    try:
+        result = root(npv, guess)
+        if result.success:
+            return float(result.x[0])
+    except Exception:
+        pass
+    return np.nan
+
 @app.callback(
     [
         Output("stock_market_macro", "figure"),
         Output("dividends_YtD_value", "children"),        
         Output("dividends_YtD_sub", "children"),
+        Output("xirr_value", "children"),
 
     ],
     [
@@ -1063,14 +965,12 @@ def update_compare(stock_details, slider_date, children):
     start_date_str = months[slider_date[0]] + '-01'  # First date
     end_date_str = months[slider_date[1]] + '-01'  # Last date
 
-    IB_degiro_path = "{path}//IB_degiro.csv".format(path=path)
-    df_spend_path = "{path}//spent_all.csv".format(path=path)
-    snp_path = "{path}//snp500.csv".format(path=path)
-    cash_path = "{path}//IB_degiro_cash.csv".format(path=path)
+    IB_degiro_path = path / "IB_degiro.csv"
+    snp_path = path / "snp500.csv"
+    cash_path = path / "IB_degiro_cash.csv"
 
-    # ---------------------------------------Read files-------------------------------------------
     df_IB_degiro = pd.read_csv(IB_degiro_path)
-    df_spend_all = pd.read_csv(df_spend_path)
+    df_spend_all = _df_all_raw.copy()
     df_snp = pd.read_csv(snp_path)
     df_cash = pd.read_csv(cash_path)
     cash_float = df_cash["Total"].iloc[0]
@@ -1117,6 +1017,15 @@ def update_compare(stock_details, slider_date, children):
     ytd_deltas["equity_YtD"] = "(" + "{:,.0f}".format(round(ytd_deltas["total_chf_delta_YTD"] - ytd_deltas["Amount_cum_delta_YTD"], 0)).replace(",", "'") + " CHF)"
     
     df_IB_degiro_sum["total_chf"] = df_IB_degiro_sum["total_chf"] + float(cash_float)
+
+    # XIRR: cash flows are deposits (negative) + current portfolio value (positive)
+    cf_dates = df_spend_investment_sum["Date"].tolist()
+    cf_amounts = (df_spend_investment_sum["Amount"] * -1).tolist()  # deposits as negative outflows
+    latest_portfolio = df_IB_degiro_sum["total_chf"].iloc[-1]
+    cf_dates.append(pd.Timestamp.now())
+    cf_amounts.append(latest_portfolio)
+    xirr_rate = compute_xirr(cf_dates, cf_amounts)
+    xirr_str = f"XIRR: {xirr_rate * 100:.1f}%" if not np.isnan(xirr_rate) else "XIRR: N/A"
 
     if stock_details == "highlevel":
         df_IB_degiro_sum = df_IB_degiro_sum[(df_IB_degiro_sum["Date"]>= start_date_str) & (df_IB_degiro_sum["Date"]<= end_date_str)]
@@ -1182,58 +1091,21 @@ def update_compare(stock_details, slider_date, children):
                 yaxis='y2',
             )
         )
-        y1_max = math.ceil(max([df_IB_degiro_sum["stock_usd_tot"].max(),df_IB_degiro_sum["total_chf"].max(), df_IB_degiro_sum["Dividends_tot"].max()]) / 10000) * 10000
-        y1_min = math.floor(min([df_IB_degiro_sum["stock_usd_tot"].max(), df_IB_degiro_sum["total_chf"].min(), df_IB_degiro_sum["Dividends_tot"].min()]) / 10000) * 10000
+        y1_max = math.ceil(max([df_IB_degiro_sum["stock_usd_tot"].max(),df_IB_degiro_sum["total_chf"].max(), df_IB_degiro_sum["Dividends_tot"].max()]) / 20000) * 20000
+        y1_min = math.floor(min([df_IB_degiro_sum["stock_usd_tot"].max(), df_IB_degiro_sum["total_chf"].min(), df_IB_degiro_sum["Dividends_tot"].min()]) / 20000) * 20000
         tickmarks = 5
-        y1_tickvals = [y1_min + (y1_max - y1_min) / tickmarks * i for i in range(len([0] * tickmarks))]
-        y1_tickvals.append(y1_min)
-        y1_tickvals.append(y1_max)
+        y1_step = math.ceil((y1_max - y1_min) / tickmarks / 20000) * 20000
+        y1_max = y1_min + y1_step * tickmarks
+        y1_tickvals = [y1_min + y1_step * i for i in range(tickmarks + 1)]
         y2_max = math.ceil(df_IB_degiro_sum["Dividends_tot"].max() / 10000) * 10000
         y2_min = math.floor(df_IB_degiro_sum["Dividends_tot"].min() / 10000) * 10000
-        y2_tickvals = [y2_min + (y2_max - y2_min) / tickmarks * i for i in range(len([0] * tickmarks))]
-        y2_tickvals.append(y2_min)
-        y2_tickvals.append(y2_max)
-        graph_degiro_IB.update_layout(
+        y2_step = (y2_max - y2_min) / tickmarks
+        y2_max = y2_min + y2_step * tickmarks
+        y2_tickvals = [y2_min + y2_step * i for i in range(tickmarks + 1)]
+        apply_dark_theme(graph_degiro_IB,
             hovermode="x unified",
-            font_size=12,
-            hoverlabel=dict(font_size=14, font_color='white'),  # Adjust hover label color
-            title_font_size=14,
-
-            paper_bgcolor='#333333',  # Background of the overall graph
-            plot_bgcolor='#333333',   # Background of the plotting area
-
-            font=dict(color='white'),  # Set general text color to white for visibility
-
-            yaxis2=dict(
-                overlaying='y',
-                side='right',
-                range=[y2_min, y2_max],
-                tickvals=y2_tickvals,
-                title="Dividends",
-                titlefont=dict(color="white"),  # White title font for contrast
-                tickfont=dict(color="white"),   # White tick font for better visibility
-                gridcolor='gray',               # Adjust grid color
-            ),
-
-            yaxis=dict(
-                range=[y1_min, y1_max],
-                tickvals=y1_tickvals,
-                title="Invested in stocks and Bonds CHF",
-                titlefont=dict(color="white"),  # White title font
-                tickfont=dict(color="white"),   # White tick font
-                gridcolor='gray',               # Gray grid lines for better visibility
-            ),
-
-            legend=dict(
-                x=0.05,
-                y=1,
-                xanchor="left",
-                yanchor="top",
-                bgcolor='rgba(255, 255, 255, 0.2)',  # Slightly transparent white for the legend background
-                bordercolor='white',  # White border for contrast
-                borderwidth=1,
-                font=dict(color='white')  # White legend text
-            )
+            yaxis2=dict(overlaying='y', side='right', range=[y2_min, y2_max], tickvals=y2_tickvals, title="Dividends", gridcolor='gray'),
+            yaxis=dict(range=[y1_min, y1_max], tickvals=y1_tickvals, title="Invested in stocks and Bonds CHF", gridcolor='gray'),
         )
     elif stock_details == "details_dividends":
 
@@ -1269,32 +1141,7 @@ def update_compare(stock_details, slider_date, children):
                     showlegend=show_in_legend,
                 )
             )
-            graph_degiro_IB.update_layout(
-                hovermode="x unified",
-                barmode='stack',
-                font_size=12,
-
-                # Set the background colors for the overall layout and plot area
-                paper_bgcolor='#333333',  # Background of the entire graph
-                plot_bgcolor='#333333',   # Background of the plotting area
-
-                font=dict(color='white'),  # Set general font color to white for readability
-
-                hoverlabel=dict(font_size=14, font_color='white'),  # Adjust hover label to have white text
-
-                title_font_size=14,
-
-                legend=dict(
-                    x=0.05,
-                    y=1,
-                    xanchor="left",
-                    yanchor="top",
-                    bgcolor='rgba(255, 255, 255, 0.2)',  # Slightly transparent white for the legend background
-                    bordercolor='white',  # White border for better contrast
-                    borderwidth=1,
-                    font=dict(color='white')  # White text in the legend for visibility
-                )
-            )
+        apply_dark_theme(graph_degiro_IB, hovermode="x unified", barmode='stack')
     elif stock_details == "deepfinder_inception":
         today = datetime.today()
         start_of_year = datetime(today.year, 1, 1)
@@ -1400,34 +1247,58 @@ def update_compare(stock_details, slider_date, children):
                 )
             )
 
-    graph_degiro_IB.update_layout(
+    apply_dark_theme(graph_degiro_IB, hovermode="x unified", barmode='stack')
+
+    return graph_degiro_IB, ytd_deltas["Dividends_tot_delta_YTD"], ytd_deltas["equity_YtD"], xirr_str
+
+
+@app.callback(
+    Output("yoy_graph", "figure"),
+    [
+        Input("yoy_category", "value"),
+        Input("app_init", "children"),
+    ],
+)
+def update_yoy(category, children):
+    df = _df_category_raw.copy()
+    df = df[df["category"] == category].copy()
+    df = df.groupby(["year", "month"], as_index=False)[["Amount"]].sum()
+    df["Amount"] = df["Amount"] * -1
+
+    fig = go.Figure()
+    month_labels = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"]
+    for year in sorted(df["year"].unique()):
+        df_year = df[df["year"] == year].sort_values("month")
+        fig.add_trace(go.Scatter(
+            x=[month_labels[m - 1] for m in df_year["month"]],
+            y=df_year["Amount"],
+            name=str(year),
+            mode="lines+markers",
+        ))
+
+    # #3 Add average across all years as dotted line
+    df_avg = df.groupby("month", as_index=False)["Amount"].mean()
+    fig.add_trace(go.Scatter(
+        x=[month_labels[m - 1] for m in df_avg["month"]],
+        y=df_avg["Amount"],
+        name="Avg all years",
+        mode="lines",
+        line=dict(color="white", dash="dot", width=2),
+    ))
+
+    # Overall monthly average as a straight horizontal line
+    overall_avg = df["Amount"].mean()
+    fig.add_hline(y=overall_avg, line_dash="dash", line_color="yellow", line_width=1,
+                  annotation_text=f"Avg: {overall_avg:,.0f} CHF/m",
+                  annotation_font_color="yellow")
+
+    apply_dark_theme(fig,
         hovermode="x unified",
-        barmode='stack',
-        font_size=12,
-
-        # Set the background colors for the overall layout and plot area
-        paper_bgcolor='#333333',  # Background of the entire graph
-        plot_bgcolor='#333333',   # Background of the plotting area
-
-        font=dict(color='white'),  # General font color set to white
-
-        hoverlabel=dict(font_size=14, font_color='white'),  # White text in hover labels for readability
-
-        title_font_size=14,
-
-        legend=dict(
-            x=0.05,
-            y=1,
-            xanchor="left",
-            yanchor="top",
-            bgcolor='rgba(255, 255, 255, 0.2)',  # Transparent white background for the legend
-            bordercolor='white',  # White border for contrast
-            borderwidth=1,
-            font=dict(color='white')  # White text in the legend for readability
-        )
+        xaxis=dict(title="Month", categoryorder="array", categoryarray=month_labels),
+        yaxis=dict(title=f"{category} spend (CHF)"),
     )
+    return fig
 
-    return graph_degiro_IB, ytd_deltas["Dividends_tot_delta_YTD"], ytd_deltas["equity_YtD"]
 
 if __name__ == "__main__":
     app.run(debug=False)

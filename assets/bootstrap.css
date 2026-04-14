@@ -10746,3 +10746,10 @@ th {
 .card .h6 {
   color: inherit;
 }
+
+
+/* Force white text in DataTable filter inputs */
+.dash-filter input {
+    color: white !important;
+    background-color: #444444 !important;
+}

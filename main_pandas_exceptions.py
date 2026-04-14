@@ -11,6 +11,66 @@ import unicodedata
 
 cwd = os.getcwd()
 
+def ensure_project_structure(cwd):
+    """Create missing directories and template CSV files for first-time setup."""
+    dirs = [
+        "InputFiles/neon", "InputFiles/swisscard", "InputFiles/Degiro",
+        "InputFiles/Degiro_deposit", "InputFiles/IB", "InputFiles/Postfinance",
+        "InputFiles/ZKB", "InputFiles/Flags", "InputFiles/Initialisation",
+        "InputFiles/Exception_csv", "InputFiles/example_data", "datasets",
+    ]
+    for d in dirs:
+        os.makedirs(os.path.join(cwd, d), exist_ok=True)
+
+    flag_files = [
+        "flag_clothes", "flag_drop_row", "flag_entertainment", "flag_food",
+        "flag_health", "flag_holidays", "flag_house", "flag_insurance",
+        "flag_investments", "flag_other", "flag_pillar2a", "flag_pirates",
+        "flag_restaurant", "flag_salary", "flag_sport", "flag_taxes",
+        "flag_transportation", "flag_twint",
+    ]
+    for f in flag_files:
+        p = os.path.join(cwd, "InputFiles", "Flags", f"{f}.csv")
+        if not os.path.exists(p):
+            open(p, 'w').close()
+            print(f"Created empty flag file: {f}.csv")
+
+    templates = {
+        "InputFiles/Initialisation/bank_init.csv":
+            "Date,Amount,Original amount,Original currency,Exchange rate,Description,Subject,Category,Tags,Wise,Spaces,category\n"
+            "01/10/2021,,,,,Start Date Dashboard,,,,,,\n"
+            "30/09/2021,5000,,,,salary,,salary,,no,no,salary\n",
+        "InputFiles/Initialisation/pillar2a.csv":
+            "Date,Amount,Original amount,Original currency,Exchange rate,Description,Subject,Category,Tags,Wise,Spaces,category\n"
+            "01/01/2022,200,,,,pillar2a,,taxes,,,,pillar2a\n",
+        "InputFiles/Initialisation/taxes_init.csv":
+            "Date,Amount,Original amount,Original currency,Exchange rate,Description,Subject,Category,Tags,Wise,Spaces,category\n",
+        "InputFiles/Exception_csv/categorization_exceptions.csv":
+            "description_substring,amount_min,amount_max,year_condition,year_min,year_max,month_condition,month_min,month_max,date_min,date_max,new_description,new_category,new_month,new_year,subject,category, Memo\n",
+        "InputFiles/Exception_csv/manual_correction.csv":
+            "Task,year,month,day,Amount,Description,category,fix_variable\n",
+        "InputFiles/IB/manual_stock_additions.csv":
+            "Date,Symbol,Quantity,Asset Category,Currency\n",
+        "InputFiles/Initialisation/personal_config.csv":
+            "key,value\nphone_number,YOUR_PHONE_NUMBER\n",
+    }
+    for rel_path, content in templates.items():
+        p = os.path.join(cwd, rel_path)
+        if not os.path.exists(p):
+            with open(p, 'w') as f:
+                f.write(content)
+            print(f"Created template: {rel_path}")
+
+ensure_project_structure(cwd)
+
+# Load personal config (phone number etc.)
+_personal_config = {}
+_config_path = os.path.join(cwd, "InputFiles", "Initialisation", "personal_config.csv")
+if os.path.exists(_config_path):
+    _cfg = pd.read_csv(_config_path)
+    _personal_config = dict(zip(_cfg["key"], _cfg["value"].astype(str)))
+PHONE_NUMBER = _personal_config.get("phone_number", "PHONE_NUMBER")
+
 def normalize(s: str) -> str:
     if not isinstance(s, str):
         return ""
@@ -273,11 +333,11 @@ def clean_postfinance(df_all, format):
 
         for index, row in df_all.iterrows():
             if "RÉCEPTION D'ARGENT TWINT" in row["Description"]:
-                df_all.loc[index, "Description"] = "Twint" + row["Description"].split("41763588431")[1]
-            elif "41763588431 POUR NUMERO MOBILE" in row["Description"]:
-                df_all.loc[index, "Description"] = "Twint" + row["Description"].split("41763588431 POUR NUMERO MOBILE")[1]
+                df_all.loc[index, "Description"] = "Twint" + row["Description"].split(PHONE_NUMBER)[1]
+            elif f"{PHONE_NUMBER} POUR NUMERO MOBILE" in row["Description"]:
+                df_all.loc[index, "Description"] = "Twint" + row["Description"].split(f"{PHONE_NUMBER} POUR NUMERO MOBILE")[1]
             elif "ACHAT/PRESTATION TWINT" in row["Description"]:
-                df_all.loc[index, "Description"] = "Achat" + row["Description"].split("41763588431")[1]
+                df_all.loc[index, "Description"] = "Achat" + row["Description"].split(PHONE_NUMBER)[1]
     original_descriptions = df_all['Description'].copy()
 
     original_descriptions = df_all['Description'].copy()
@@ -752,11 +812,11 @@ def read_postfiannce(cwd, df_prev):
 
         for index, row in df_all.iterrows():
             if "RÉCEPTION D'ARGENT TWINT" in row["Description"]:
-                df_all.loc[index, "Description"] = "Twint" + row["Description"].split("41763588431")[1]
-            elif "41763588431 POUR NUMERO MOBILE" in row["Description"]:
-                df_all.loc[index, "Description"] = "Twint" + row["Description"].split("41763588431 POUR NUMERO MOBILE")[1]
+                df_all.loc[index, "Description"] = "Twint" + row["Description"].split(PHONE_NUMBER)[1]
+            elif f"{PHONE_NUMBER} POUR NUMERO MOBILE" in row["Description"]:
+                df_all.loc[index, "Description"] = "Twint" + row["Description"].split(f"{PHONE_NUMBER} POUR NUMERO MOBILE")[1]
             elif "ACHAT/PRESTATION TWINT" in row["Description"]:
-                df_all.loc[index, "Description"] = "Achat" + row["Description"].split("41763588431")[1]
+                df_all.loc[index, "Description"] = "Achat" + row["Description"].split(PHONE_NUMBER)[1]
 
 
         if df_prev is not None:
@@ -828,6 +888,87 @@ def map_similar_descriptions(df, threshold=80):
     df['Description'] = df['Description'].map(description_to_group)
     return df
 
+def ml_categorise_others(df, score_threshold=75):
+    """For transactions categorised as 'others', use fuzzy matching against
+    known description->category pairs to suggest a better category.
+    Only the Description column is updated (suffixed with _ML) to flag it."""
+    skip_categories = {"others", "salary", "investment", "pillar2a", "taxes"}
+    df_known = df[~df["category"].isin(skip_categories)].copy()
+    if df_known.empty:
+        return df
+
+    # Build lookup: most common category per description
+    cat_lookup = (
+        df_known.groupby("Description")["category"]
+        .agg(lambda x: x.value_counts().index[0])
+        .to_dict()
+    )
+    known_descs = list(cat_lookup.keys())
+    if not known_descs:
+        return df
+
+    others_mask = df["category"] == "others"
+    for idx in df[others_mask].index:
+        desc = str(df.at[idx, "Description"])
+        if not desc or desc == "nan":
+            continue
+        match = process.extractOne(desc, known_descs, scorer=fuzz.ratio)
+        if match and match[1] >= score_threshold:
+            matched_desc = match[0]
+            new_cat = cat_lookup[matched_desc]
+            df.at[idx, "category"] = new_cat
+            df.at[idx, "Description"] = desc + "_ML"
+    return df
+
+
+def apply_manual_corrections(df_all, cwd):
+    correction_file = fr"{cwd}\InputFiles\Exception_csv\manual_correction.csv"
+    if not os.path.exists(correction_file):
+        print("No manual_correction.csv found. Skipping.")
+        return df_all
+
+    corrections = pd.read_csv(correction_file)
+    corrections.columns = corrections.columns.str.strip()
+    for col in corrections.select_dtypes(include=["object", "string"]).columns:
+        corrections[col] = corrections[col].map(lambda x: x.strip() if isinstance(x, str) else x)
+
+    corrections["year"] = corrections["year"].astype(int)
+    corrections["month"] = corrections["month"].astype(int)
+    corrections["day"] = pd.to_numeric(corrections["day"], errors='coerce')
+    corrections["Amount"] = corrections["Amount"].astype(float)
+
+    df_all["Description"] = df_all["Description"].str.strip()
+
+    for _, row in corrections[corrections["Task"] == "delete_row"].iterrows():
+        mask = (df_all["year"] == row["year"]) & (df_all["month"] == row["month"])
+        if not pd.isna(row["day"]):
+            mask &= df_all["day"] == int(row["day"])
+        if not pd.isna(row["Amount"]):
+            mask &= df_all["Amount"] == float(row["Amount"])
+        if isinstance(row["Description"], str) and row["Description"].strip() != "":
+            mask &= df_all["Description"].str.contains(row["Description"].strip(), case=False, na=False)
+        before = len(df_all)
+        df_all = df_all[~mask]
+        print(f"Deleted {before - len(df_all)} rows matching: {row.to_dict()}")
+
+    for _, row in corrections[corrections["Task"] == "add_row"].iterrows():
+        day = int(row["day"]) if not pd.isna(row["day"]) else 1
+        fix_variable = row['fix_variable'] if not pd.isna(row.get("fix_variable")) else 'variable'
+        new_row = {
+            "year": int(row["year"]),
+            "month": int(row["month"]),
+            "day": day,
+            "category": row.get("category", "others"),
+            "Description": row["Description"],
+            "Amount": float(row["Amount"]),
+            "fix_variable": fix_variable,
+        }
+        df_all = pd.concat([df_all, pd.DataFrame([new_row])], ignore_index=True)
+        print(f"Added row: {new_row}")
+
+    return df_all
+
+
 def main(cwd):
     df_all = read_neon(cwd)
     df_all = read_zkb(cwd, df_all)
@@ -842,16 +983,15 @@ def main(cwd):
     df_all = sbb_half_tax(df_all)
 
     df_all_save = df_all[["year", "month","day", "category","fix_variable","Description","Amount"]].copy()
+    df_all_save = apply_manual_corrections(df_all_save, cwd)
 
     #%% Prepare and save
-    df_group = df_all.groupby(["year", "month", "category","fix_variable"], as_index=False)[["Amount"]].sum()  # ,'category_name'
+    df_group = df_all_save.groupby(["year", "month", "category","fix_variable"], as_index=False)[["Amount"]].sum()  # ,'category_name'
     
     df_all_save['Description_original'] =df_all_save['Description']
     df_all_save['Description'] = df_all_save['Description'].str.lower()
 
-    df_all_save = map_similar_descriptions(df_all_save, threshold=80)
-    #print(df_all_save[df_all_save["Description"].str.contains("five", na=False)])
-
+    df_all_save = map_similar_descriptions(df_all_save, threshold=95)
     df_all_save.to_csv(r"{cwd}\datasets\spent_all.csv".format(cwd=cwd),index=False)
     df_group.to_csv(r"{cwd}\datasets\spent_category.csv".format(cwd=cwd),index=False)
     pd.DataFrame(df_group["category"].unique(),columns=["category"]).to_csv(r"{cwd}\datasets\category.csv".format(cwd=cwd),index=False)
