@@ -33,3 +33,8 @@
 
 # Allow .gitkeep files everywhere
 !.gitkeep
+
+
+# Python cache
+__pycache__/
+*.pyc
