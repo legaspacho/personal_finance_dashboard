@@ -567,15 +567,19 @@ tab_investment = html.Div(style={'backgroundColor': '#1a1a1a', 'padding': '20px'
         dbc.Col(dbc.Card(dbc.CardBody([
             html.Label("Total Gain", className="text-white", style={'fontSize': '12px'}),
             html.Div(id='kpi_total_gain', className='card-text text-white'),
-        ]), style={'backgroundColor': '#333333'}), width=4),
+        ]), style={'backgroundColor': '#333333'}), width=3),
         dbc.Col(dbc.Card(dbc.CardBody([
             html.Label("Unrealised Gain", className="text-white", style={'fontSize': '12px'}),
             html.Div(id='kpi_unrealised', className='card-text text-white'),
-        ]), style={'backgroundColor': '#333333'}), width=4),
+        ]), style={'backgroundColor': '#333333'}), width=3),
         dbc.Col(dbc.Card(dbc.CardBody([
             html.Label("Realised Gain (incl. options, dividends)", className="text-white", style={'fontSize': '12px'}),
             html.Div(id='kpi_realised', className='card-text text-white'),
-        ]), style={'backgroundColor': '#333333'}), width=4),
+        ]), style={'backgroundColor': '#333333'}), width=3),
+        dbc.Col(dbc.Card(dbc.CardBody([
+            html.Label("Annualised Return (XIRR)", className="text-white", style={'fontSize': '12px'}),
+            html.Div(id='kpi_xirr_portfolio', className='card-text text-white'),
+        ]), style={'backgroundColor': '#333333'}), width=3),
     ], className="mb-4"),
 
     # Row 1: IB DEGIRO Overview + Portfolio Details side by side
@@ -1503,7 +1507,8 @@ def update_yoy(category, children):
 @app.callback(
     [Output('kpi_total_gain', 'children'),
      Output('kpi_unrealised', 'children'),
-     Output('kpi_realised', 'children')],
+     Output('kpi_realised', 'children'),
+     Output('kpi_xirr_portfolio', 'children')],
     Input('app_init', 'children'),
 )
 def update_investment_kpis(children):
@@ -1561,7 +1566,35 @@ def update_investment_kpis(children):
         color = '#00CC66' if val >= 0 else '#FF4444'
         return html.Span(f"{val:,.0f} CHF", style={'color': color, 'fontSize': '18px', 'fontWeight': 'bold'})
 
-    return fmt(total_gain), fmt(unrealised), fmt(realised)
+    # XIRR: deposits as negative outflows, current portfolio+cash as positive terminal value
+    df_invest["day"] = 1
+    df_invest["Date"] = pd.to_datetime(df_invest[["year", "month", "day"]])
+    df_invest_sum = df_invest.groupby("Date", as_index=False)[["Amount"]].sum().sort_values("Date")
+    cf_dates = df_invest_sum["Date"].tolist()
+    cf_amounts = df_invest_sum["Amount"].tolist()  # already negative (outflows)
+    cf_dates.append(pd.Timestamp.now())
+    cf_amounts.append(portfolio_value + cash_float)
+    xirr_rate = compute_xirr(cf_dates, cf_amounts)
+
+    # VT benchmark XIRR: same deposit cash flows, but terminal value = VT CHF on same date as portfolio
+    df_snp = pd.read_csv(path / "snp500.csv")
+    df_snp["Date"] = pd.to_datetime(df_snp["Date"])
+    vt_on_portfolio_date = df_snp[df_snp["Date"] <= latest_date].sort_values("Date")
+    vt_final = vt_on_portfolio_date["stock_chf_tot"].iloc[-1] if not vt_on_portfolio_date.empty else np.nan
+    cf_dates_vt = df_invest_sum["Date"].tolist()
+    cf_amounts_vt = df_invest_sum["Amount"].tolist()
+    cf_dates_vt.append(pd.Timestamp.now())
+    cf_amounts_vt.append(vt_final)
+    xirr_vt = compute_xirr(cf_dates_vt, cf_amounts_vt)
+
+    vt_str = f" (VT: {xirr_vt * 100:.1f}%)" if not np.isnan(xirr_vt) else ""
+    if not np.isnan(xirr_rate):
+        color = '#00CC66' if xirr_rate >= 0 else '#FF4444'
+        xirr_str = html.Span(f"{xirr_rate * 100:.1f}% p.a.{vt_str}", style={'color': color, 'fontSize': '18px', 'fontWeight': 'bold'})
+    else:
+        xirr_str = html.Span(f"N/A{vt_str}", style={'color': 'white', 'fontSize': '18px'})
+
+    return fmt(total_gain), fmt(unrealised), fmt(realised), xirr_str
 
 
 @app.callback(
@@ -1779,10 +1812,13 @@ def update_stock_price(symbol, children):
         # Get the cumulative split factor from the price data
         df_sym_full = _df_ib_degiro_raw[_df_ib_degiro_raw["Symbol"] == symbol].sort_values("Date")
         if "Stock Quantity" in df_sym_full.columns:
-            # Use the ratio: current qty / sum of raw trades to get the split factor
             latest_qty = df_sym_full["Stock Quantity"].iloc[-1] if not df_sym_full.empty else 0
             raw_qty_sum = df_all_trades["Quantity"].sum()
-            split_factor = latest_qty / raw_qty_sum if raw_qty_sum != 0 else 1
+            # Only use split factor if position is still held; for closed positions use 1
+            if latest_qty != 0 and raw_qty_sum != 0:
+                split_factor = latest_qty / raw_qty_sum
+            else:
+                split_factor = 1
         else:
             split_factor = 1
 

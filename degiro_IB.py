@@ -600,7 +600,7 @@ def prepare_trading_inputs(cwd, plot_graph, manual_date_correction):
     manual_date_correction = pd.to_datetime(manual_date_correction)
     
     df_final = df_final[~df_final['Date'].isin(us_holidays)]
-    df_final = df_final[df_final["Date"] != df_final["Date"].max()].copy()
+    df_final = df_final[df_final["Date"] != pd.Timestamp.today().normalize()].copy()
     df_final = df_final[~(df_final["Date"].isin(manual_date_correction))].copy()
 
     drop_date_closed = ["2025-01-09T00:00:00.000000000", '']
