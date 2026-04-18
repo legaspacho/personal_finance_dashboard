@@ -2,7 +2,7 @@
 """
 Created on Mon Mar 22 17:28:20 2021
 
-@author: LHERMITTE_G
+@author: legaspacho
 """
 import pandas as pd
 import plotly.express as px
@@ -521,12 +521,146 @@ tab_buy_vs_rent = html.Div(style={'backgroundColor': '#1a1a1a', 'padding': '20px
     ], className="mb-4"),
 ])
 
+# Load trade data once at startup for the per-stock buy overlay
+_df_ib_degiro_raw = pd.read_csv(path / "IB_degiro.csv")
+_df_ib_degiro_raw["Date"] = pd.to_datetime(_df_ib_degiro_raw["Date"])
+
+# Build buy points from raw IB + Degiro trade files
+def _load_trade_points():
+    from degiro_IB import read_IB, read_degiro
+    trades = []
+    try:
+        ib_files = [f for f in os.listdir(Path(cwd) / "InputFiles" / "IB") if f.endswith(".csv")]
+        ib_year_files = [f for f in ib_files if f[:-4].isdigit()]
+        if ib_year_files:
+            df_ib = read_IB(ib_year_files)
+            trades.append(df_ib)
+    except Exception:
+        pass
+    try:
+        df_deg = read_degiro()
+        if df_deg is not None and not df_deg.empty:
+            trades.append(df_deg)
+    except Exception:
+        pass
+    if trades:
+        df_trades = pd.concat(trades, ignore_index=True)
+        df_trades["Date"] = pd.to_datetime(df_trades["Date"])
+        df_trades["Quantity"] = pd.to_numeric(df_trades["Quantity"], errors="coerce")
+        return df_trades[["Date", "Symbol", "Quantity", "Asset Category"]].copy()
+    return pd.DataFrame(columns=["Date", "Symbol", "Quantity", "Asset Category"])
+
+_df_trades = _load_trade_points()
+
+# Get stock symbols for dropdown, default to largest position
+_stock_symbols = sorted(_df_ib_degiro_raw["Symbol"].dropna().unique().tolist())
+_latest_date = _df_ib_degiro_raw["Date"].max()
+_df_latest_pos = _df_ib_degiro_raw[_df_ib_degiro_raw["Date"] == _latest_date].copy()
+_df_latest_pos["value"] = _df_latest_pos["Stock Quantity"].fillna(0) * _df_latest_pos["Close_CHF"].fillna(0)
+_default_stock = _df_latest_pos.groupby("Symbol")["value"].sum().idxmax() if not _df_latest_pos.empty else (_stock_symbols[0] if _stock_symbols else None)
+
+tab_investment = html.Div(style={'backgroundColor': '#1a1a1a', 'padding': '20px'}, children=[
+    html.H2("Investment Portfolio Analysis", className="text-white", style={'textAlign': 'center'}),
+
+    # KPI Row
+    dbc.Row([
+        dbc.Col(dbc.Card(dbc.CardBody([
+            html.Label("Total Gain", className="text-white", style={'fontSize': '12px'}),
+            html.Div(id='kpi_total_gain', className='card-text text-white'),
+        ]), style={'backgroundColor': '#333333'}), width=4),
+        dbc.Col(dbc.Card(dbc.CardBody([
+            html.Label("Unrealised Gain", className="text-white", style={'fontSize': '12px'}),
+            html.Div(id='kpi_unrealised', className='card-text text-white'),
+        ]), style={'backgroundColor': '#333333'}), width=4),
+        dbc.Col(dbc.Card(dbc.CardBody([
+            html.Label("Realised Gain (incl. options, dividends)", className="text-white", style={'fontSize': '12px'}),
+            html.Div(id='kpi_realised', className='card-text text-white'),
+        ]), style={'backgroundColor': '#333333'}), width=4),
+    ], className="mb-4"),
+
+    # Row 1: IB DEGIRO Overview + Portfolio Details side by side
+    dbc.Row([
+        dbc.Col(dbc.Card([
+            dbc.CardBody([
+                html.Label("Stock details:", className="text-white", style={'fontSize': '12px'}),
+                dcc.RadioItems(
+                    id="portfolio_stock_details",
+                    value="highlevel",
+                    labelStyle={'display': 'inline-block', 'color': 'white', 'marginRight': '10px', 'fontSize': '11px'},
+                    options=[
+                        {"label": "High level", "value": "highlevel"},
+                        {"label": "Dividends", "value": "details_dividends"},
+                        {"label": "Stocks", "value": "details_stocks"},
+                        {"label": "Deep YTD", "value": 'deepfinder_ytd'},
+                        {"label": "Deep inception", "value": 'deepfinder_inception'},
+                    ],
+                    className="text-white",
+                    inline=True,
+                ),
+            ], style={'padding': '8px'}),
+            dcc.Graph(id="portfolio_ib_degiro_graph"),
+        ], style={'backgroundColor': '#333333'}), width=6),
+        dbc.Col(dbc.Card([
+            dbc.CardBody([
+                html.Label("Select view:", className="text-white", style={'fontSize': '12px'}),
+                dcc.RadioItems(
+                    id="portfolio_view",
+                    value="allocation",
+                    labelStyle={'display': 'inline-block', 'color': 'white', 'marginRight': '10px', 'fontSize': '11px'},
+                    options=[
+                        {"label": "Current Allocation", "value": "allocation"},
+                        {"label": "Per-Stock Growth", "value": "per_stock_xirr"},
+                        {"label": "Monthly Returns %", "value": "monthly_returns"},
+                    ],
+                    className="text-white",
+                    inline=True,
+                ),
+            ], style={'padding': '8px'}),
+            dcc.Graph(id="portfolio_detail_graph"),
+        ], style={'backgroundColor': '#333333'}), width=6),
+    ], className="mb-4"),
+
+    # Row 3: Per-stock price chart with buy points
+    dbc.Row([
+        dbc.Col(dbc.Card(dbc.CardBody([
+            html.Label("Select stock:", className="text-white"),
+            dcc.Dropdown(
+                id="stock_selector",
+                options=[{"label": s, "value": s} for s in _stock_symbols],
+                value=_default_stock,
+                clearable=False,
+                style={'backgroundColor': '#444444', 'color': 'black'},
+            ),
+        ]), style={'backgroundColor': '#333333'}), width=2),
+        dbc.Col(dbc.Card([
+            dbc.CardHeader("Stock Price & Buy Points", className="card-title text-white"),
+            dcc.Graph(id="stock_price_graph"),
+        ], style={'backgroundColor': '#333333'}), width=10),
+    ], className="mb-4"),
+
+    # Row 4: Holdings table
+    dbc.Row([
+        dbc.Col(dbc.Card([
+            dbc.CardHeader("Holdings", className="card-title text-white"),
+            DataTable(id='holdings_table', columns=[], data=[], page_size=20,
+                style_header={'backgroundColor': '#444444', 'color': 'white', 'fontWeight': 'bold'},
+                style_cell={'backgroundColor': '#333333', 'color': 'white', 'border': '1px solid #444444', 'textAlign': 'left'},
+                style_table={'overflowX': 'auto'},
+                sort_action='native'),
+        ], style={'backgroundColor': '#333333'}), width=12),
+    ]),
+])
+
 app.layout = html.Div(style={'backgroundColor': '#1a1a1a'}, children=[
     dcc.Tabs(id='main-tabs', value='tab-finance', children=[
         dcc.Tab(label='Finance Dashboard', value='tab-finance',
             style={'backgroundColor': '#333333', 'color': 'white', 'padding': '10px'},
             selected_style={'backgroundColor': '#1a1a1a', 'color': 'white', 'borderTop': '2px solid #119dff', 'padding': '10px'},
             children=[tab_finance]),
+        dcc.Tab(label='Investment Portfolio', value='tab-portfolio',
+            style={'backgroundColor': '#333333', 'color': 'white', 'padding': '10px'},
+            selected_style={'backgroundColor': '#1a1a1a', 'color': 'white', 'borderTop': '2px solid #119dff', 'padding': '10px'},
+            children=[tab_investment]),
         dcc.Tab(label='Buy vs. Rent', value='tab-bvr',
             style={'backgroundColor': '#333333', 'color': 'white', 'padding': '10px'},
             selected_style={'backgroundColor': '#1a1a1a', 'color': 'white', 'borderTop': '2px solid #119dff', 'padding': '10px'},
@@ -1363,6 +1497,336 @@ def update_yoy(category, children):
         xaxis=dict(title="Month", categoryorder="array", categoryarray=month_labels),
         yaxis=dict(title=f"{category} spend (CHF)"),
     )
+    return fig
+
+
+@app.callback(
+    [Output('kpi_total_gain', 'children'),
+     Output('kpi_unrealised', 'children'),
+     Output('kpi_realised', 'children')],
+    Input('app_init', 'children'),
+)
+def update_investment_kpis(children):
+    df = _df_ib_degiro_raw.copy()
+    df_cash = pd.read_csv(path / "IB_degiro_cash.csv")
+    cash_float = float(df_cash["Total"].iloc[0])
+    df_spend_all = _df_all_raw.copy()
+
+    # Total deposited
+    df_invest = df_spend_all[
+        df_spend_all["Description"].str.lower().str.contains("degiro|interactive brockers", case=False, na=False)
+    ].copy()
+    total_deposited = df_invest["Amount"].sum() * -1
+
+    # Current portfolio + cash + dividends
+    latest_date = df["Date"].max()
+    df_latest = df[df["Date"] == latest_date].copy()
+    df_latest["value"] = df_latest["Stock Quantity"].fillna(0) * df_latest["Close_CHF"].fillna(0)
+    portfolio_value = df_latest["value"].sum()
+    total_gain = (portfolio_value + cash_float) - total_deposited
+
+    # Unrealised: for each stock still held, (current_price - avg_buy_price) × held_qty
+    # Skip options (no purchase price available)
+    unrealised = 0
+    held_symbols = df_latest[df_latest["value"].abs() > 1]["Symbol"].unique()
+    stock_trades = _df_trades[_df_trades["Asset Category"] == "Stocks"] if "Asset Category" in _df_trades.columns else _df_trades
+    for symbol in held_symbols:
+        sym_trades = stock_trades[stock_trades["Symbol"] == symbol].copy()
+        if sym_trades.empty:
+            continue
+        sym_trades = sym_trades.sort_values("Date")
+        df_sym_price = df[df["Symbol"] == symbol].sort_values("Date").dropna(subset=["Close_CHF"])
+        if df_sym_price.empty:
+            continue
+        # Compute total cost of all buys using split-adjusted prices
+        total_buy_cost = 0
+        total_buy_qty = 0
+        for _, trade in sym_trades.iterrows():
+            if trade["Quantity"] <= 0:
+                continue
+            df_before = df_sym_price[df_sym_price["Date"] <= trade["Date"]]
+            price = df_before.iloc[-1]["Close_CHF"] if not df_before.empty else df_sym_price.iloc[0]["Close_CHF"]
+            total_buy_cost += price * trade["Quantity"]
+            total_buy_qty += trade["Quantity"]
+        if total_buy_qty == 0:
+            continue
+        avg_cost = total_buy_cost / total_buy_qty
+        held_qty = df_latest[df_latest["Symbol"] == symbol]["Stock Quantity"].iloc[0]
+        current_price = df_sym_price.iloc[-1]["Close_CHF"]
+        unrealised += (current_price - avg_cost) * held_qty
+
+    realised = total_gain - unrealised
+
+    def fmt(val):
+        color = '#00CC66' if val >= 0 else '#FF4444'
+        return html.Span(f"{val:,.0f} CHF", style={'color': color, 'fontSize': '18px', 'fontWeight': 'bold'})
+
+    return fmt(total_gain), fmt(unrealised), fmt(realised)
+
+
+@app.callback(
+    [Output('portfolio_detail_graph', 'figure'),
+     Output('holdings_table', 'data'), Output('holdings_table', 'columns')],
+    [Input('portfolio_view', 'value'), Input('app_init', 'children')],
+)
+def update_portfolio(view, children):
+    IB_degiro_path = path / "IB_degiro.csv"
+    cash_path = path / "IB_degiro_cash.csv"
+    df = pd.read_csv(IB_degiro_path)
+    df["Date"] = pd.to_datetime(df["Date"])
+    df_cash = pd.read_csv(cash_path)
+    cash_float = float(df_cash["Total"].iloc[0])
+
+    latest_date = df["Date"].max()
+    df_latest = df[df["Date"] == latest_date].copy()
+    df_latest["value"] = df_latest["Stock Quantity"].fillna(0) * df_latest["Close_CHF"].fillna(0)
+    df_latest = df_latest[df_latest["value"].abs() > 1].copy()
+
+    if view == "allocation":
+        df_alloc = df_latest.groupby("Symbol", as_index=False)["value"].sum()
+        df_alloc = df_alloc[df_alloc["value"] > 0].sort_values("value", ascending=False)
+        df_alloc.loc[len(df_alloc)] = {"Symbol": "Cash", "value": cash_float}
+        total_val = df_alloc["value"].sum()
+        df_alloc["pct"] = df_alloc["value"] / total_val * 100
+        df_small = df_alloc[df_alloc["pct"] < 1]
+        df_alloc = df_alloc[df_alloc["pct"] >= 1].copy()
+        if not df_small.empty:
+            df_alloc.loc[len(df_alloc)] = {"Symbol": "Other (<1%)", "value": df_small["value"].sum(), "pct": df_small["pct"].sum()}
+        fig = go.Figure(go.Pie(
+            labels=df_alloc["Symbol"], values=df_alloc["value"],
+            textinfo="label+percent", hole=0.4,
+            textfont=dict(size=9),
+            domain=dict(x=[0, 0.6]),
+        ))
+        apply_dark_theme(fig,
+            legend=dict(x=0.62, y=0.5, xanchor="left", yanchor="middle",
+                        orientation="v", font=dict(size=9)),
+        )
+        fig.update_layout(title="Current Portfolio Allocation",
+                          margin=dict(t=40, b=20, l=20, r=20))
+
+    elif view == "per_stock_xirr":
+        df_spend_all = _df_all_raw.copy()
+        df_invest = df_spend_all[
+            df_spend_all["Description"].str.lower().str.contains("degiro|interactive brockers", case=False, na=False)
+        ].copy()
+        df_invest["day"] = 1
+        df_invest["Date"] = pd.to_datetime(df_invest[["year", "month", "day"]])
+        total_invested = df_invest["Amount"].sum() * -1
+        total_portfolio = df_latest["value"].sum() + cash_float
+
+        # Per-stock growth since first appearance
+        growth_data = []
+        for symbol in df_latest["Symbol"].unique():
+            df_sym = df[df["Symbol"] == symbol].sort_values("Date")
+            df_sym = df_sym.dropna(subset=["Close_CHF"])
+            if len(df_sym) < 2:
+                continue
+            first_price = df_sym.iloc[0]["Close_CHF"]
+            last_price = df_sym.iloc[-1]["Close_CHF"]
+            if first_price == 0:
+                continue
+            growth = (last_price - first_price) / first_price * 100
+            current_val = df_latest[df_latest["Symbol"] == symbol]["value"].sum()
+            growth_data.append({"Symbol": symbol, "Growth %": round(growth, 1), "Value CHF": round(current_val, 0)})
+
+        df_growth = pd.DataFrame(growth_data).sort_values("Growth %", ascending=False)
+        colors = ["seagreen" if v >= 0 else "crimson" for v in df_growth["Growth %"]]
+        fig = go.Figure(go.Bar(x=df_growth["Symbol"], y=df_growth["Growth %"], marker_color=colors))
+        apply_dark_theme(fig, xaxis=dict(title="Symbol"), yaxis=dict(title="Growth (%)"))
+        fig.update_layout(title="Per-Stock Growth Since First Purchase")
+
+    elif view == "monthly_returns":
+        df_monthly = df.groupby("Date", as_index=False)[["total_chf"]].sum()
+        df_monthly = df_monthly.sort_values("Date")
+        df_monthly["return_pct"] = df_monthly["total_chf"].pct_change() * 100
+        df_monthly = df_monthly.dropna()
+        # Resample to monthly
+        df_monthly = df_monthly.set_index("Date").resample("ME").last().reset_index()
+        df_monthly = df_monthly.dropna(subset=["return_pct"])
+        colors = ["seagreen" if v >= 0 else "crimson" for v in df_monthly["return_pct"]]
+        fig = go.Figure(go.Bar(x=df_monthly["Date"], y=df_monthly["return_pct"], marker_color=colors))
+        apply_dark_theme(fig, hovermode="x unified",
+            xaxis=dict(title="Date"), yaxis=dict(title="Monthly Return (%)"))
+        fig.update_layout(title="Monthly Portfolio Returns (%)")
+    else:
+        fig = go.Figure()
+        apply_dark_theme(fig)
+
+    # Holdings table
+    df_holdings = df_latest.groupby("Symbol", as_index=False).agg(
+        {"Stock Quantity": "last", "Close_CHF": "last", "value": "sum", "Dividends_tot": "last"}
+    ).sort_values("value", ascending=False)
+    df_holdings.columns = ["Symbol", "Quantity", "Price CHF", "Value CHF", "Dividends CHF"]
+    df_holdings = df_holdings.round(1)
+    total_val = df_holdings["Value CHF"].sum()
+    df_holdings["Weight %"] = (df_holdings["Value CHF"] / total_val * 100).round(1)
+    cols = [{"name": c, "id": c} for c in df_holdings.columns]
+
+    return fig, df_holdings.to_dict("records"), cols
+
+
+@app.callback(
+    Output('portfolio_ib_degiro_graph', 'figure'),
+    [Input('portfolio_stock_details', 'value'), Input('app_init', 'children')],
+)
+def update_portfolio_ib(stock_details, children):
+    df = _df_ib_degiro_raw.copy()
+    df_spend_all = _df_all_raw.copy()
+    df_snp = pd.read_csv(path / "snp500.csv")
+    df_cash = pd.read_csv(path / "IB_degiro_cash.csv")
+    cash_float = float(df_cash["Total"].iloc[0])
+
+    top20_symbols, df_top20 = load_prep_data_deepfinder(df)
+
+    df_invest = df_spend_all[
+        df_spend_all["Description"].str.lower().str.contains("degiro|interactive brockers", case=False, na=False)
+    ].copy()
+    df_invest["day"] = 1
+    df_invest["Date"] = pd.to_datetime(df_invest[["year", "month", "day"]])
+    df_snp["Date"] = pd.to_datetime(df_snp["Date"])
+
+    df_invest_sum = df_invest.groupby("Date", as_index=False)[["Amount"]].sum().sort_values("Date")
+    df_invest_sum["Amount"] = df_invest_sum["Amount"] * -1
+    df_invest_sum["Amount_cum"] = df_invest_sum["Amount"].cumsum()
+
+    df_sum = df.groupby("Date", as_index=False)[["Dividends_tot", "total_chf", "total_chf_constant"]].sum()
+    df_sum = pd.merge(df_sum, df_invest_sum, on="Date", how="outer").sort_values("Date")
+    df_sum[["Amount_cum", "Dividends_tot", "total_chf", "total_chf_constant"]] = df_sum[["Amount_cum", "Dividends_tot", "total_chf", "total_chf_constant"]].ffill()
+    df_sum["total_chf"] = df_sum["total_chf"] + cash_float
+
+    if stock_details == "highlevel":
+        df_snp_sum = df_snp.groupby("Date", as_index=False)[["stock_chf_tot", "stock_usd_tot"]].sum().sort_values("Date")
+        df_merged = pd.merge(df_sum, df_snp_sum, on="Date", how="left")
+        df_merged[["stock_chf_tot", "stock_usd_tot"]] = df_merged[["stock_chf_tot", "stock_usd_tot"]].ffill()
+        fig = go.Figure()
+        fig.add_trace(go.Scatter(x=df_merged["Date"], y=df_merged["total_chf"], name="Portfolio CHF"))
+        fig.add_trace(go.Scatter(x=df_merged["Date"], y=df_merged["total_chf_constant"], name="Portfolio USD"))
+        fig.add_trace(go.Scatter(x=df_merged["Date"], y=df_merged["Amount_cum"], name="Invested"))
+        fig.add_trace(go.Scatter(x=df_merged["Date"], y=df_merged["stock_chf_tot"], name="VT CHF"))
+        fig.add_trace(go.Scatter(x=df_merged["Date"], y=df_merged["Dividends_tot"], name="Dividends", yaxis="y2"))
+        y1_max = math.ceil(max(df_merged["total_chf"].max(), df_merged["stock_chf_tot"].max()) / 20000) * 20000
+        y1_min = math.floor(min(df_merged["total_chf"].min(), df_merged["Dividends_tot"].min()) / 20000) * 20000
+        tickmarks = 5
+        y1_step = math.ceil((y1_max - y1_min) / tickmarks / 20000) * 20000
+        y1_max = y1_min + y1_step * tickmarks
+        y1_tickvals = [y1_min + y1_step * i for i in range(tickmarks + 1)]
+        y2_max = math.ceil(df_merged["Dividends_tot"].max() / 10000) * 10000
+        y2_min = math.floor(df_merged["Dividends_tot"].min() / 10000) * 10000
+        y2_step = (y2_max - y2_min) / tickmarks
+        y2_max = y2_min + y2_step * tickmarks
+        y2_tickvals = [y2_min + y2_step * i for i in range(tickmarks + 1)]
+        apply_dark_theme(fig, hovermode="x unified",
+            yaxis=dict(title="CHF", range=[y1_min, y1_max], tickvals=y1_tickvals),
+            yaxis2=dict(overlaying="y", side="right", title="Dividends", range=[y2_min, y2_max], tickvals=y2_tickvals))
+    elif stock_details in ["deepfinder_ytd", "deepfinder_inception"]:
+        today = datetime.today()
+        growth_data = []
+        for symbol in top20_symbols:
+            df_sym = df_top20[df_top20["Symbol"] == symbol].sort_values("Date")
+            start = datetime(today.year, 1, 1) if stock_details == "deepfinder_ytd" else df_sym["Date"].min()
+            g = compute_growth(df_sym, start)
+            growth_data.append({"Symbol": symbol, "Growth %": g})
+        df_g = pd.DataFrame(growth_data).dropna().sort_values("Growth %", ascending=False)
+        colors = ["seagreen" if v >= 0 else "crimson" for v in df_g["Growth %"]]
+        fig = go.Figure(go.Bar(x=df_g["Symbol"], y=df_g["Growth %"], marker_color=colors))
+        title = "Top 20 - YTD Growth" if stock_details == "deepfinder_ytd" else "Top 20 - Growth Since Inception"
+        apply_dark_theme(fig, xaxis=dict(title="Symbol"), yaxis=dict(title="Growth (%)"))
+        fig.update_layout(title=title)
+    else:
+        col = "Dividends_tot" if stock_details == "details_dividends" else "total_chf"
+        df_det = df.groupby(["Date", "Symbol"], as_index=False)[[col]].sum().sort_values(["Symbol", "Date"])
+        df_det["Year"] = df_det["Date"].dt.year
+        df_det["Month"] = df_det["Date"].dt.month
+        df_det["Day"] = 1
+        df_det = df_det[df_det[col] != 0]
+        df_monthly = df_det.groupby(["Symbol", "Year", "Month", "Day"], as_index=False)[[col]].mean().round(0)
+        df_monthly["Date"] = pd.to_datetime(df_monthly[["Year", "Month", "Day"]])
+        df_monthly = df_monthly.dropna().sort_values(col, ascending=False)
+        total = df_monthly[df_monthly["Date"] == df_monthly["Date"].max()][col].sum()
+        fig = go.Figure()
+        for sym in df_monthly["Symbol"].unique():
+            d = df_monthly[df_monthly["Symbol"] == sym]
+            sym_val = d[d["Date"] == d["Date"].max()][col].sum()
+            fig.add_trace(go.Bar(x=d["Date"], y=d[col], name=sym, showlegend=bool(sym_val >= 0.02 * total)))
+        apply_dark_theme(fig, hovermode="x unified", barmode="stack")
+
+    return fig
+
+
+@app.callback(
+    Output('stock_price_graph', 'figure'),
+    [Input('stock_selector', 'value'), Input('app_init', 'children')],
+)
+def update_stock_price(symbol, children):
+    if not symbol:
+        return go.Figure()
+
+    df_price = _df_ib_degiro_raw[_df_ib_degiro_raw["Symbol"] == symbol].copy()
+    df_price = df_price.sort_values("Date").dropna(subset=["Close_CHF"])
+
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(
+        x=df_price["Date"], y=df_price["Close_CHF"],
+        name=f"{symbol} Price (CHF)", mode="lines",
+    ))
+
+    df_all_trades = _df_trades[_df_trades["Symbol"] == symbol].copy()
+    if not df_all_trades.empty:
+        df_all_trades = df_all_trades.sort_values("Date")
+        # Adjust trade quantities for stock splits using split-adjusted prices
+        # Since Close_CHF is split-adjusted, we need split-adjusted quantities too
+        # Get the cumulative split factor from the price data
+        df_sym_full = _df_ib_degiro_raw[_df_ib_degiro_raw["Symbol"] == symbol].sort_values("Date")
+        if "Stock Quantity" in df_sym_full.columns:
+            # Use the ratio: current qty / sum of raw trades to get the split factor
+            latest_qty = df_sym_full["Stock Quantity"].iloc[-1] if not df_sym_full.empty else 0
+            raw_qty_sum = df_all_trades["Quantity"].sum()
+            split_factor = latest_qty / raw_qty_sum if raw_qty_sum != 0 else 1
+        else:
+            split_factor = 1
+
+        trade_values = []
+        for _, trade in df_all_trades.iterrows():
+            df_before = df_price[df_price["Date"] <= trade["Date"]]
+            if not df_before.empty:
+                price_at_trade = df_before.iloc[-1]["Close_CHF"]
+            else:
+                closest = df_price.iloc[(df_price["Date"] - trade["Date"]).abs().argsort()[:1]]
+                price_at_trade = closest["Close_CHF"].values[0] if not closest.empty else None
+            if price_at_trade is not None:
+                adjusted_qty = abs(trade["Quantity"]) * abs(split_factor)
+                trade_values.append(price_at_trade * adjusted_qty)
+            else:
+                trade_values.append(None)
+        df_all_trades["Value_CHF"] = trade_values
+        df_all_trades = df_all_trades.dropna(subset=["Value_CHF"])
+
+        df_buys = df_all_trades[df_all_trades["Quantity"] > 0]
+        df_sells = df_all_trades[df_all_trades["Quantity"] < 0]
+
+        if not df_buys.empty:
+            fig.add_trace(go.Bar(
+                x=df_buys["Date"], y=df_buys["Value_CHF"],
+                name="Buy (CHF)", yaxis="y2",
+                marker=dict(color="rgba(0, 255, 0, 0.4)"),
+                width=5 * 24 * 60 * 60 * 1000,
+                hovertemplate="%{x}<br>Buy: %{y:,.0f} CHF<extra></extra>",
+            ))
+        if not df_sells.empty:
+            fig.add_trace(go.Bar(
+                x=df_sells["Date"], y=df_sells["Value_CHF"],
+                name="Sell (CHF)", yaxis="y2",
+                marker=dict(color="rgba(255, 68, 68, 0.4)"),
+                width=5 * 24 * 60 * 60 * 1000,
+                hovertemplate="%{x}<br>Sell: %{y:,.0f} CHF<extra></extra>",
+            ))
+
+    apply_dark_theme(fig, hovermode="x unified",
+        xaxis=dict(title="Date"),
+        yaxis=dict(title="Price (CHF)"),
+        yaxis2=dict(overlaying="y", side="right", title="Buy Value (CHF)", showgrid=False))
+    fig.update_layout(title=f"{symbol} — Price History & Buy Points")
     return fig
 
 

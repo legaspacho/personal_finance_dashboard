@@ -2,7 +2,7 @@
 """
 Created on Mon Sep 23 18:08:49 2024
 
-@author: LHERMITTE_G
+@author: legaspacho
 """
 import time
 import holidays

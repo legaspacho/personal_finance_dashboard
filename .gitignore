@@ -31,6 +31,10 @@
 # Ignore BackupScript entirely
 /BackupScript/
 
+# IDE / local config
+.vscode/
+mypath.json
+
 # Allow .gitkeep files everywhere
 !.gitkeep
 
