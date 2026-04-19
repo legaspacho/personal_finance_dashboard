@@ -615,6 +615,7 @@ tab_investment = html.Div(style={'backgroundColor': '#1a1a1a', 'padding': '20px'
                         {"label": "Current Allocation", "value": "allocation"},
                         {"label": "Per-Stock Growth", "value": "per_stock_xirr"},
                         {"label": "Monthly Returns %", "value": "monthly_returns"},
+                        {"label": "Rolling XIRR", "value": "rolling_xirr"},
                     ],
                     className="text-white",
                     inline=True,
@@ -1140,7 +1141,8 @@ def compute_xirr(dates, amounts, guess=0.1):
     amounts = np.array(amounts, dtype=float)
 
     def npv(rate):
-        return np.sum(amounts / (1 + rate) ** years)
+        with np.errstate(invalid='ignore'):
+            return np.sum(amounts / (1 + rate) ** years)
 
     try:
         result = root(npv, guess)
@@ -1682,6 +1684,61 @@ def update_portfolio(view, children):
         apply_dark_theme(fig, hovermode="x unified",
             xaxis=dict(title="Date"), yaxis=dict(title="Monthly Return (%)"))
         fig.update_layout(title="Monthly Portfolio Returns (%)")
+
+    elif view == "rolling_xirr":
+        df_spend_all = _df_all_raw.copy()
+        df_invest = df_spend_all[
+            df_spend_all["Description"].str.lower().str.contains("degiro|interactive brockers", case=False, na=False)
+        ].copy()
+        df_invest["day"] = 1
+        df_invest["Date"] = pd.to_datetime(df_invest[["year", "month", "day"]])
+        df_invest_sum = df_invest.groupby("Date", as_index=False)[["Amount"]].sum().sort_values("Date")
+
+        df_portfolio = df.groupby("Date", as_index=False)[["total_chf"]].sum().sort_values("Date")
+        df_portfolio["total_chf"] = df_portfolio["total_chf"] + cash_float
+        # Resample to monthly for performance
+        df_monthly_val = df_portfolio.set_index("Date").resample("ME").last().reset_index().dropna()
+
+        # VT benchmark values
+        df_snp = pd.read_csv(path / "snp500.csv")
+        df_snp["Date"] = pd.to_datetime(df_snp["Date"])
+        df_snp_monthly = df_snp.set_index("Date").resample("ME").last().reset_index().dropna(subset=["stock_chf_tot"])
+
+        xirr_dates, xirr_vals, xirr_vt_vals = [], [], []
+        for _, row in df_monthly_val.iterrows():
+            eval_date = row["Date"]
+            cf_before = df_invest_sum[df_invest_sum["Date"] <= eval_date]
+            if len(cf_before) < 2:
+                continue
+            cf_d = cf_before["Date"].tolist() + [eval_date]
+            cf_a = cf_before["Amount"].tolist() + [row["total_chf"]]
+            rate = compute_xirr(cf_d, cf_a)
+            xirr_dates.append(eval_date)
+            xirr_vals.append(rate * 100 if not np.isnan(rate) else np.nan)
+            # VT XIRR at same date
+            vt_row = df_snp_monthly[df_snp_monthly["Date"] <= eval_date]
+            if not vt_row.empty:
+                cf_d_vt = cf_before["Date"].tolist() + [eval_date]
+                cf_a_vt = cf_before["Amount"].tolist() + [vt_row["stock_chf_tot"].iloc[-1]]
+                rate_vt = compute_xirr(cf_d_vt, cf_a_vt)
+                xirr_vt_vals.append(rate_vt * 100 if not np.isnan(rate_vt) else np.nan)
+            else:
+                xirr_vt_vals.append(np.nan)
+
+        # Skip first 4 months — too little data for meaningful XIRR
+        if len(xirr_dates) > 4:
+            xirr_dates = xirr_dates[4:]
+            xirr_vals = xirr_vals[4:]
+            xirr_vt_vals = xirr_vt_vals[4:]
+
+        fig = go.Figure()
+        fig.add_trace(go.Scatter(x=xirr_dates, y=xirr_vals, name="Portfolio XIRR", mode="lines"))
+        fig.add_trace(go.Scatter(x=xirr_dates, y=xirr_vt_vals, name="VT XIRR", mode="lines", line=dict(dash="dot")))
+        fig.add_hline(y=0, line_dash="dash", line_color="gray", line_width=1)
+        apply_dark_theme(fig, hovermode="x unified",
+            xaxis=dict(title="Date"), yaxis=dict(title="XIRR (%)"))
+        fig.update_layout(title="Rolling XIRR — Portfolio vs VT Benchmark")
+
     else:
         fig = go.Figure()
         apply_dark_theme(fig)
@@ -1857,6 +1914,23 @@ def update_stock_price(symbol, children):
                 width=5 * 24 * 60 * 60 * 1000,
                 hovertemplate="%{x}<br>Sell: %{y:,.0f} CHF<extra></extra>",
             ))
+
+    # Avg cost line from stock trades
+    stock_trades = _df_trades[(_df_trades["Symbol"] == symbol) & (_df_trades.get("Asset Category", pd.Series(dtype=str)) == "Stocks")] if "Asset Category" in _df_trades.columns else _df_trades[_df_trades["Symbol"] == symbol]
+    if not stock_trades.empty and not df_price.empty:
+        total_cost, total_qty = 0, 0
+        for _, t in stock_trades.sort_values("Date").iterrows():
+            if t["Quantity"] <= 0:
+                continue
+            before = df_price[df_price["Date"] <= t["Date"]]
+            p = before.iloc[-1]["Close_CHF"] if not before.empty else df_price.iloc[0]["Close_CHF"]
+            total_cost += p * t["Quantity"]
+            total_qty += t["Quantity"]
+        if total_qty > 0:
+            avg_cost = total_cost / total_qty
+            fig.add_hline(y=avg_cost, line_dash="dash", line_color="yellow", line_width=1,
+                          annotation_text=f"Avg cost: {avg_cost:,.1f}",
+                          annotation_font_color="yellow", annotation_position="top left")
 
     apply_dark_theme(fig, hovermode="x unified",
         xaxis=dict(title="Date"),
